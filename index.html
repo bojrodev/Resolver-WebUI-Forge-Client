@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Bojro Resolver</title>
+    
+    <meta name="theme-color" content="#121212">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+
+    <link rel="manifest" id="dynamic-manifest">
+    <link rel="apple-touch-icon" id="apple-icon">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <div id="installBanner" class="hidden">⬇️ INSTALL BOJRO (FULL SCREEN)</div>
+
+    <h2>Bojro Elegance<br>Diffusion Resolver</h2>
+
+    <div class="tab-bar">
+        <div class="tab active" onclick="switchTab('gen')">GENERATOR</div>
+        <div class="tab" onclick="switchTab('vae')">VAE LIST</div>
+        <div class="tab" onclick="switchTab('ana')">ANALYZER</div>
+    </div>
+
+    <div id="view-gen">
+        
+        <div id="connBar" class="row">
+            <input type="text" id="hostIp" value="Enter webui ip (eg: http://127.0.0.1:7860) ">
+            <button onclick="connect()" class="btn-small">LINK</button>
+            <div id="statusDot" class="indicator"></div>
+        </div>
+
+        <div class="col">
+            <label>Checkpoint</label>
+            <div class="row">
+                <select id="modelSelect" onchange="changeModel()"><option>লিংক চাপ হালা.....</option></select>
+                <button onclick="setDefaultModel()" class="btn-small" style="padding: 8px 12px;">⭐</button>
+            </div>
+        </div>
+        
+        <div class="row" style="align-items: flex-end;">
+            <div class="col">
+                <label>VAE (Use dropdown or paste multiple)</label>
+                <div class="row" style="gap:5px;">
+                    <select id="vaeSelect" onchange="changeVAE()">
+                        <option value="Automatic">Automatic</option>
+                        <option value="None">None</option>
+                    </select>
+                    <input type="text" id="vaeInput" class="hidden" placeholder="file1.safetensors file2.safetensors..." onblur="changeVAE()">
+                    <button onclick="toggleVaeMode()" class="btn-small" style="padding: 12px;" title="Switch Dropdown/Text">✎</button>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col">
+            <label>Diffusion Bits (Full Forge Support)</label>
+            <select id="bitSelect" onchange="changeBits()">
+                <option value="Automatic">Automatic</option>
+                <option value="Automatic (fp16 LoRA)">Automatic (fp16 LoRA)</option>
+                <option value="bnb-nf4">bnb-nf4</option>
+                <option value="bnb-nf4 (fp16 LoRA)">bnb-nf4 (fp16 LoRA)</option>
+                <option value="float8-e4m3fn">float8-e4m3fn</option>
+                <option value="float8-e4m3fn (fp16 LoRA)">float8-e4m3fn (fp16 LoRA)</option>
+                <option value="bnb-fp4">bnb-fp4</option>
+                <option value="bnb-fp4 (fp16 LoRA)">bnb-fp4 (fp16 LoRA)</option>
+                <option value="float8-e5m2">float8-e5m2</option>
+                <option value="float8-e5m2 (fp16 LoRA)">float8-e5m2 (fp16 LoRA)</option>
+            </select>
+        </div>
+
+        <div class="col">
+            <label>Prompt</label>
+            <textarea id="prompt">masterpiece, best quality, 1girl, cyberpunk city, neon lights</textarea>
+            <button onclick="openLoraModal()" class="btn-small" style="width: 100%; background: #222; border: 1px dashed #555; margin-bottom: 5px;">+ SELECT LORA</button>
+            <label>Negative Prompt</label>
+            <textarea id="neg" style="min-height: 50px;">low quality, blurry, watermark, bad anatomy</textarea>
+        </div>
+
+        <div class="row">
+            <div class="col">
+                <label>Sampling Method</label>
+                <select id="samplerSelect">
+                    <option value="Euler a">Euler a</option>
+                    <option value="Euler">Euler</option>
+                    <option value="LMS">LMS</option>
+                    <option value="Heun">Heun</option>
+                    <option value="DPM2">DPM2</option>
+                    <option value="DPM2 a">DPM2 a</option>
+                    <option value="DPM++ 2S a">DPM++ 2S a</option>
+                    <option value="DPM++ 2M">DPM++ 2M</option>
+                    <option value="DPM++ SDE">DPM++ SDE</option>
+                    <option value="DPM++ 2M SDE">DPM++ 2M SDE</option>
+                    <option value="DPM fast">DPM fast</option>
+                    <option value="DPM adaptive">DPM adaptive</option>
+                    <option value="LMS Karras">LMS Karras</option>
+                    <option value="DPM2 Karras">DPM2 Karras</option>
+                    <option value="DPM2 a Karras">DPM2 a Karras</option>
+                    <option value="DPM++ 2S a Karras">DPM++ 2S a Karras</option>
+                    <option value="DPM++ 2M Karras">DPM++ 2M Karras</option>
+                    <option value="DPM++ SDE Karras">DPM++ SDE Karras</option>
+                    <option value="DPM++ 2M SDE Karras">DPM++ 2M SDE Karras</option>
+                    <option value="DDIM">DDIM</option>
+                    <option value="PLMS">PLMS</option>
+                    <option value="UniPC">UniPC</option>
+                </select>
+            </div>
+            <div class="col">
+                <label>Schedule Type</label>
+                <select id="schedulerSelect">
+                    <option value="Karras" selected>Karras</option>
+                    <option value="Automatic">Automatic</option>
+                    <option value="Exponential">Exponential</option>
+                    <option value="SGM Uniform">SGM Uniform</option>
+                    <option value="Simple">Simple</option>
+                    <option value="Normal">Normal</option>
+                    <option value="DDS">DDS</option>
+                    <option value="Beta">Beta</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col"><label>Steps</label><input type="number" id="steps" value="20"></div>
+            <div class="col"><label>CFG</label><input type="number" id="cfg" value="7"></div>
+        </div>
+        <div class="row">
+            <div class="col"><label>Width</label><input type="number" id="width" value="512" step="64"></div>
+            <div class="col"><label>Height</label><input type="number" id="height" value="768" step="64"></div>
+        </div>
+        
+        <div class="row">
+            <div class="col"><label>Batch Size</label><input type="number" id="batchSize" value="1" min="1" max="8"></div>
+            <div class="col"><label>Batch Count</label><input type="number" id="batchCount" value="1" min="1" max="100"></div>
+        </div>
+
+        <div class="col">
+            <label>Seed (-1 for Random)</label>
+            <div class="row" style="gap: 5px;">
+                <input type="number" id="seed" value="-1" placeholder="-1">
+                <button onclick="document.getElementById('seed').value = '-1'" class="btn-small" style="padding: 12px; width: auto;" title="Randomize">🎲</button>
+            </div>
+        </div>
+
+        <button id="genBtn" onclick="generate()" disabled>GENERATE</button>
+        
+        <div id="gallery">
+            <div class="spinner" id="loadingSpinner"></div>
+        </div>
+        
+        <button id="dlBtn" class="btn-small hidden" onclick="downloadResults()" style="width:100%; margin-top:10px; background:#2196F3; color:white; padding:15px;">⬇️ DOWNLOAD RESULTS</button>
+
+        <div id="metaData" class="meta-box hidden"></div>
+    </div>
+
+    <div id="view-vae" class="hidden">
+        <div class="col" style="text-align: center; padding: 20px;">
+            <p style="color: #888; font-size: 12px;">Run <b>vae_sidecar.py</b> on PC first</p>
+            <button onclick="fetchSidecarVAEs()" class="btn-small" style="width: 100%; padding: 15px; font-size: 16px;">SCAN PC FOLDER (E:\...)</button>
+        </div>
+        <div id="vaeFileList"></div>
+        <div id="multiSelectBar" class="hidden">
+            <div id="selectCount" style="color: white; font-weight: bold;">0 Selected</div>
+            <button onclick="copyJoined()" class="btn-small" style="background: var(--accent); color: black; font-weight: 800;">COPY JOINED</button>
+        </div>
+    </div>
+
+    <div id="view-ana" class="hidden">
+        <label for="imageUpload">
+            <div id="uploadBox">
+                <div style="font-weight: bold; color: #888;">TAP TO UPLOAD</div>
+                <div style="font-size: 12px; color: #555;">JPG, PNG, WEBP</div>
+            </div>
+        </label>
+        <input type="file" id="imageUpload" accept="image/*" class="hidden" onchange="handleFileSelect(event)">
+        <div class="grid-info">
+            <div class="info-card"><div class="info-label">Resolution</div><div id="resOut" class="info-val">-- x --</div></div>
+            <div class="info-card"><div class="info-label">Aspect Ratio</div><div id="arOut" class="info-val">--</div></div>
+            <div class="info-card" style="grid-column: span 2;"><div class="info-label">Date</div><div id="dateOut" class="info-val">N/A</div></div>
+        </div>
+        <div id="anaGallery" class="hidden" style="margin-top: 15px; border-radius: 8px; overflow: hidden; border: 1px solid var(--border);">
+            <img id="anaPreview" style="width: 100%; display: block;">
+        </div>
+        <div style="margin-top: 15px;">
+            <label>Metadata / Prompts</label>
+            <div id="anaMeta" class="meta-box" style="min-height: 100px;">Load an image to extract data...</div>
+        </div>
+    </div>
+
+    <div id="loraModal" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Select LoRA</h3>
+                <button onclick="closeLoraModal()" class="close-btn">✕</button>
+            </div>
+            <input type="text" id="loraSearch" placeholder="Search LoRAs..." onkeyup="filterLoras()">
+            <div id="loraVerticalList">
+                <div style="text-align:center; color:#666; padding:20px;">Connect first to load LoRAs</div>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
