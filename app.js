@@ -11,32 +11,129 @@ if (manifestEl && iconEl) {
     manifestEl.href = URL.createObjectURL(new Blob([JSON.stringify(manifest)], {type: 'application/json'}));
 }
 
+// --- DB & GALLERY ---
+let db;
+const request = indexedDB.open("BojroDB", 1);
+request.onupgradeneeded = function(event) {
+    db = event.target.result;
+    db.createObjectStore("images", { keyPath: "id", autoIncrement: true });
+};
+request.onsuccess = function(event) { db = event.target.result; loadGallery(); loadHostIp(); }; 
+
+function saveImageToDB(base64) {
+    if(!db) return;
+    const transaction = db.transaction(["images"], "readwrite");
+    transaction.objectStore("images").add({ data: base64, date: new Date().toLocaleString() });
+}
+
+window.clearDbGallery = function() {
+    if(confirm("Delete all history?")) {
+        const transaction = db.transaction(["images"], "readwrite");
+        transaction.objectStore("images").clear();
+        loadGallery();
+    }
+}
+
+// --- RESOLUTION SWITCHES (NEW DEFINITIONS) ---
+window.setResolution = function(w, h) {
+    document.getElementById('width').value = w;
+    document.getElementById('height').value = h;
+};
+
+window.flipResolution = function() {
+    const widthInput = document.getElementById('width');
+    const heightInput = document.getElementById('height');
+    
+    const currentW = widthInput.value;
+    const currentH = heightInput.value;
+    
+    widthInput.value = currentH;
+    heightInput.value = currentW;
+};
+// --- END RESOLUTION SWITCHES ---
+
+
+// --- HOST IP PERSISTENCE LOGIC ---
+function loadHostIp() {
+    const savedIp = localStorage.getItem('bojroHostIp');
+    if (savedIp) {
+        document.getElementById('hostIp').value = savedIp;
+    }
+}
+
+function saveHostIp() {
+    const currentIp = document.getElementById('hostIp').value;
+    if (currentIp && currentIp.startsWith('http')) {
+        localStorage.setItem('bojroHostIp', currentIp);
+    }
+}
+
 // --- UI TABS ---
-function switchTab(view) {
+window.switchTab = function(view) {
     document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
     document.querySelectorAll('[id^="view-"]').forEach(v => v.classList.add('hidden'));
     document.getElementById('view-' + view).classList.remove('hidden');
     
     if(view === 'gen') document.querySelectorAll('.tab')[0].classList.add('active');
-    if(view === 'vae') document.querySelectorAll('.tab')[1].classList.add('active');
+    if(view === 'gal') { document.querySelectorAll('.tab')[1].classList.add('active'); loadGallery(); }
     if(view === 'ana') document.querySelectorAll('.tab')[2].classList.add('active');
 }
 
-function toggleVaeMode() {
-    const select = document.getElementById('vaeSelect');
-    const input = document.getElementById('vaeInput');
-    if(select.classList.contains('hidden')) {
-        select.classList.remove('hidden'); input.classList.add('hidden');
-    } else {
-        select.classList.add('hidden'); input.classList.remove('hidden');
-    }
+window.toggleVaeMode = function() {
+    // VAE logic removed from UI
 }
 
-// --- LORA MODAL ---
+// --- GALLERY LOGIC ---
+function loadGallery() {
+    const grid = document.getElementById('savedGalleryGrid');
+    grid.innerHTML = "";
+    if(!db) return;
+    const store = db.transaction(["images"], "readonly").objectStore("images");
+    store.getAll().onsuccess = function(e) {
+        const images = e.target.result;
+        if(!images || images.length === 0) {
+            grid.innerHTML = "<div style='text-align:center; color:#666; grid-column:span 3; margin-top:50px;'>Empty History</div>";
+            return;
+        }
+        images.reverse().forEach(item => {
+            const img = document.createElement('img');
+            img.src = item.data;
+            img.className = 'gal-thumb';
+            img.onclick = () => openFullscreen(item.data);
+            grid.appendChild(img);
+        });
+    };
+}
+
+let currentFsImage = ""; 
+window.openFullscreen = function(base64) {
+    currentFsImage = base64;
+    document.getElementById('fsImage').src = base64;
+    document.getElementById('fullScreenModal').classList.remove('hidden');
+}
+window.closeFsModal = function() { document.getElementById('fullScreenModal').classList.add('hidden'); }
+
+window.analyzeCurrentFs = function() {
+    window.closeFsModal();
+    window.switchTab('ana');
+    fetch(currentFsImage).then(res => res.blob()).then(blob => {
+        const file = new File([blob], "gallery_image.png", { type: "image/png" });
+        const img = new Image();
+        img.onload = () => {
+            document.getElementById('anaPreview').src = img.src;
+            document.getElementById('anaGallery').classList.remove('hidden');
+            document.getElementById('resOut').innerText = `${img.width} x ${img.height}`;
+        };
+        img.src = URL.createObjectURL(file);
+        extractMetadata(file);
+    });
+}
+
+// --- LORA ---
 let allLoras = []; 
-function openLoraModal() { document.getElementById('loraModal').classList.remove('hidden'); document.getElementById('loraSearch').focus(); }
-function closeLoraModal() { document.getElementById('loraModal').classList.add('hidden'); }
-function filterLoras() {
+window.openLoraModal = function() { document.getElementById('loraModal').classList.remove('hidden'); document.getElementById('loraSearch').focus(); }
+window.closeLoraModal = function() { document.getElementById('loraModal').classList.add('hidden'); }
+window.filterLoras = function() {
     const term = document.getElementById('loraSearch').value.toLowerCase();
     const list = document.getElementById('loraVerticalList');
     list.innerHTML = "";
@@ -57,13 +154,23 @@ function filterLoras() {
 
 // --- CONNECTION ---
 let HOST = "";
+
+function getHeaders() {
+    return {
+        'Content-Type': 'application/json',
+        'ngrok-skip-browser-warning': 'true', 
+        'User-Agent': 'BojroApp'
+    };
+}
+
 window.connect = async function() {
     HOST = document.getElementById('hostIp').value.replace(/\/$/, ""); 
     const dot = document.getElementById('statusDot');
     dot.style.background = "yellow"; 
 
     try {
-        const res = await fetch(`${HOST}/sdapi/v1/sd-models`);
+        const res = await fetch(`${HOST}/sdapi/v1/sd-models`, { headers: getHeaders() });
+        
         if (!res.ok) throw new Error("Status: " + res.status);
 
         dot.classList.remove('err');
@@ -71,8 +178,16 @@ window.connect = async function() {
         dot.style.background = "#00e676"; // Green
 
         document.getElementById('genBtn').disabled = false;
-        fetchModels(); fetchSamplers(); fetchLoras(); fetchVAEs();
-        alert("SUCCESS: Connected to Forge!");
+        fetchModels(); fetchSamplers(); fetchLoras();
+        
+        // --- HIDDEN SETTINGS UPDATE (Automatic VAE/Bits) ---
+        postOption({ "sd_vae": "Automatic" }, null);
+        postOption({ "forge_unet_storage_dtype": "Automatic" }, null);
+        // ------------------------------
+        
+        saveHostIp(); 
+
+        alert("SUCCESS: Connected!");
     } catch (e) {
         dot.classList.add('err');
         dot.style.background = "#f44336"; 
@@ -82,7 +197,7 @@ window.connect = async function() {
 
 async function fetchModels() {
     try {
-        const res = await fetch(`${HOST}/sdapi/v1/sd-models`);
+        const res = await fetch(`${HOST}/sdapi/v1/sd-models`, { headers: getHeaders() });
         const models = await res.json();
         const select = document.getElementById('modelSelect');
         select.innerHTML = "";
@@ -92,11 +207,11 @@ async function fetchModels() {
             select.appendChild(opt);
         });
         window.setDefaultModel();
-    } catch(e) {}
+    } catch(e){}
 }
 async function fetchSamplers() {
     try {
-        const res = await fetch(`${HOST}/sdapi/v1/samplers`);
+        const res = await fetch(`${HOST}/sdapi/v1/samplers`, { headers: getHeaders() });
         const samplers = await res.json();
         const select = document.getElementById('samplerSelect');
         select.innerHTML = "";
@@ -106,93 +221,22 @@ async function fetchSamplers() {
             if(s.name === "Euler a") opt.selected = true;
             select.appendChild(opt);
         });
-    } catch(e) {}
+    } catch(e){}
 }
 async function fetchLoras() {
     try {
-        const res = await fetch(`${HOST}/sdapi/v1/loras`);
+        const res = await fetch(`${HOST}/sdapi/v1/loras`, { headers: getHeaders() });
         allLoras = await res.json();
         window.filterLoras();
     } catch(e){}
 }
-async function fetchVAEs() {
-    try {
-        const res = await fetch(`${HOST}/sdapi/v1/sd-vae`);
-        const vaes = await res.json();
-        const select = document.getElementById('vaeSelect');
-        select.innerHTML = "<option>Automatic</option><option>None</option>";
-        vaes.forEach(v => {
-            const opt = document.createElement('option');
-            opt.value = v.model_name; opt.text = v.model_name;
-            select.appendChild(opt);
-        });
-    } catch(e){}
-}
-
-// --- SIDEBAR VAE ---
-let selectedFiles = new Set();
-async function fetchSidecarVAEs() {
-    const list = document.getElementById('vaeFileList');
-    const ip = document.getElementById('hostIp').value.replace(/\/$/, "").split(":")[1].replace("//", "");
-    const sidecarUrl = `http://${ip}:5000`; 
-    list.innerHTML = "<div style='text-align:center; color:#666;'>Scanning E:\\...</div>";
-    try {
-        const res = await fetch(sidecarUrl);
-        const files = await res.json();
-        list.innerHTML = "";
-        selectedFiles.clear();
-        updateSelectBar();
-        if(files.length === 0 || files[0].startsWith("Error")) {
-           list.innerHTML = "<div style='color:red; text-align:center;'>No VAEs found or Error</div>"; return;
-        }
-        files.forEach(f => {
-            const item = document.createElement('div');
-            item.className = 'vae-item';
-            item.onclick = () => toggleSelection(f, item);
-            item.innerHTML = `<div class="vae-check"></div><div class="vae-name">${f}</div>`;
-            list.appendChild(item);
-        });
-    } catch (e) { list.innerHTML = "<div style='color:red; text-align:center;'>Sidecar unreachable</div>"; }
-}
-
-function toggleSelection(name, el) {
-    if(selectedFiles.has(name)) { selectedFiles.delete(name); el.classList.remove('selected'); } 
-    else { selectedFiles.add(name); el.classList.add('selected'); }
-    updateSelectBar();
-}
-
-function updateSelectBar() {
-    const bar = document.getElementById('multiSelectBar');
-    const count = document.getElementById('selectCount');
-    if(selectedFiles.size > 0) { bar.classList.remove('hidden'); count.innerText = selectedFiles.size + " Selected"; } 
-    else { bar.classList.add('hidden'); }
-}
-
-function copyJoined() {
-    const joined = Array.from(selectedFiles).join(" ");
-    const input = document.getElementById('vaeInput');
-    input.value = joined;
-    document.getElementById('vaeSelect').classList.add('hidden');
-    input.classList.remove('hidden');
-    alert("Copied " + selectedFiles.size + " files to Text Mode!");
-    switchTab('gen');
-}
-
-window.changeModel = function() { postOption({ "sd_model_checkpoint": document.getElementById('modelSelect').value }, "LOADING MODEL..."); }
-window.changeVAE = function() { 
-    const select = document.getElementById('vaeSelect');
-    const input = document.getElementById('vaeInput');
-    const val = select.classList.contains('hidden') ? input.value : select.value;
-    postOption({ "sd_vae": val }, "SWAPPING VAE...");
-}
-window.changeBits = function() { postOption({ "forge_unet_storage_dtype": document.getElementById('bitSelect').value }, "CHANGING BITS..."); }
 
 async function postOption(payload, msg) {
     const btn = document.getElementById('genBtn');
     if(msg) { btn.innerText = msg; btn.disabled = true; }
     try {
         await fetch(`${HOST}/sdapi/v1/options`, {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            method: 'POST', headers: getHeaders(), 
             body: JSON.stringify(payload)
         });
     } catch (e) { console.error(e); }
@@ -240,7 +284,7 @@ window.generate = async function() {
         };
 
         const res = await fetch(`${HOST}/sdapi/v1/txt2img`, {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            method: 'POST', headers: getHeaders(),
             body: JSON.stringify(payload)
         });
 
@@ -249,10 +293,13 @@ window.generate = async function() {
         
         if (data.images) {
             data.images.forEach(b64 => {
+                const finalB64 = "data:image/png;base64," + b64;
                 const img = document.createElement('img');
-                img.src = "data:image/png;base64," + b64;
+                img.src = finalB64;
                 img.className = 'gen-result';
                 gallery.appendChild(img);
+                
+                saveImageToDB(finalB64); // Save to DB
             });
             dlBtn.classList.remove('hidden');
             
@@ -272,47 +319,33 @@ window.generate = async function() {
     btn.innerText = "GENERATE";
 }
 
-// --- METADATA PRESERVING DOWNLOADER ---
+// --- DOWNLOADER ---
 window.downloadResults = async function() {
     const images = document.querySelectorAll('.gen-result');
     if(images.length === 0) return alert("No images to download!");
-    
     const now = new Date();
     const timestamp = now.toISOString().replace(/[:.]/g, '-').slice(0, 19); 
     
     for (let i = 0; i < images.length; i++) {
         const img = images[i];
-        
         try {
-            // 1. Fetch ORIGINAL Blob (Preserves Metadata)
             const res = await fetch(img.src);
             const blob = await res.blob();
-            
-            // 2. Create Filename
             const filename = `Strateon_${timestamp}_${i + 1}.png`;
-            
-            // 3. Create File Object (Helps some browsers respect name)
             const file = new File([blob], filename, { type: "image/png" });
-            
-            // 4. Download Link
             const blobUrl = URL.createObjectURL(file);
             const link = document.createElement('a');
             link.href = blobUrl;
             link.download = filename;
-            
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
-            
             setTimeout(() => URL.revokeObjectURL(blobUrl), 100);
-            
-        } catch (e) {
-            alert("Save Failed: " + e.message);
-        }
+        } catch (e) { alert("Save Failed: " + e.message); }
     }
 }
 
-// --- ANALYZER (Fixed Scope) ---
+// --- ANALYZER ---
 function gcd(a, b) { return b ? gcd(b, a % b) : a; }
 
 window.handleFileSelect = function(event) {
@@ -360,7 +393,6 @@ async function extractMetadata(file) {
     
     if (metadata.length > 0) metaEl.innerText = metadata.join('\n\n');
     else {
-        // Fallback for Automatic1111 'parameters' text
         const view = new Uint8Array(buffer);
         const idx = findBytes(view, new TextEncoder().encode('parameters'));
         if(idx !== -1) {
@@ -374,7 +406,11 @@ function findBytes(h, n) { for(let i=0;i<h.length-n.length;i++){let f=true;for(l
 // --- LISTENERS ---
 const uploadBox = document.getElementById('uploadBox');
 if (uploadBox) {
-    uploadBox.addEventListener('drop', (e) => { document.getElementById('imageUpload').files = e.dataTransfer.files; window.handleFileSelect({ target: { files: e.dataTransfer.files } }); });
+    uploadBox.addEventListener('drop', (e) => { 
+        e.preventDefault();
+        document.getElementById('imageUpload').files = e.dataTransfer.files; 
+        window.handleFileSelect({ target: { files: e.dataTransfer.files } }); 
+    });
 }
 
 function loadAutoDlState() {

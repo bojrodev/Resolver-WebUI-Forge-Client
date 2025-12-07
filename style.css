@@ -19,9 +19,8 @@ h2 {
     text-align: center; font-weight: 800; margin: 0 0 10px 0; font-size: 20px;
     background: -webkit-linear-gradient(45deg, #ff9800, #ff5722);
     -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-    text-transform: uppercase; letter-spacing: 1px; line-height: 1.3;
+    text-transform: uppercase; letter-spacing: 1px;
 }
-
 .tab-bar { display: flex; background: var(--panel); border-radius: 12px; padding: 4px; border: 1px solid var(--border); margin-bottom: 10px; }
 .tab { flex: 1; text-align: center; padding: 10px; border-radius: 8px; font-weight: bold; font-size: 13px; color: #888; cursor: pointer; transition: 0.2s; }
 .tab.active { background: #333; color: var(--accent); box-shadow: 0 2px 5px rgba(0,0,0,0.2); }
@@ -41,24 +40,16 @@ h2 {
 .indicator.err { background: #f44336; box-shadow: 0 0 8px #f44336; }
 
 label { font-size: 11px; color: #888; text-transform: uppercase; font-weight: bold; margin-left: 2px; margin-top: 5px;}
-
-/* GENERAL INPUT STYLING */
-select, input, textarea { 
+select, input:not([readonly]), textarea { 
     background: var(--panel); border: 1px solid var(--border); color: white; padding: 12px; 
     border-radius: 8px; font-size: 14px; width: 100%; box-sizing: border-box; -webkit-appearance: none; 
 }
-select:focus, input:focus, textarea:focus { border-color: var(--accent); outline: none; }
-
-/* FIX FOR CHECKBOX VISIBILITY */
-input[type="checkbox"] {
-    -webkit-appearance: checkbox !important;
-    appearance: checkbox !important;
-    width: 20px;
-    height: 20px;
-    accent-color: var(--accent); /* Makes the tick orange */
-    padding: 0;
-    cursor: pointer;
+input[readonly] { 
+    background: #222 !important; border-color: #444 !important; color: #ccc !important;
+    cursor: default;
 }
+select:focus, input:focus, textarea:focus { border-color: var(--accent); outline: none; }
+input[type="checkbox"] { -webkit-appearance: checkbox !important; appearance: checkbox !important; width: 20px; height: 20px; accent-color: var(--accent); padding: 0; cursor: pointer; }
 
 .btn-small { padding: 10px 15px; background: #333; color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; flex-shrink: 0;}
 .btn-small:active { background: #555; }
@@ -67,50 +58,69 @@ input[type="checkbox"] {
 #genBtn:active { transform: translateY(4px); box-shadow: 0 0 0 #c66900; }
 #genBtn:disabled { background: #444; color: #888; box-shadow: none; transform: none; cursor: not-allowed; }
 
-/* VAE LIST SPECIFIC */
-#vaeFileList { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; padding-bottom: 80px;}
-.vae-item { background: var(--panel); padding: 12px; border-radius: 8px; border: 1px solid var(--border); display: flex; align-items: center; cursor: pointer; transition: 0.2s; }
-.vae-item.selected { border-color: var(--accent); background: #332200; }
-.vae-check { width: 20px; height: 20px; border-radius: 50%; border: 2px solid #555; margin-right: 10px; display: flex; align-items: center; justify-content: center; }
-.vae-item.selected .vae-check { border-color: var(--accent); background: var(--accent); }
-.vae-name { font-family: monospace; font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
-
-#multiSelectBar {
-    position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
-    width: 90%; max-width: 400px;
-    background: #222; border: 1px solid var(--accent); border-radius: 12px;
-    padding: 10px 15px; display: flex; justify-content: space-between; align-items: center;
-    box-shadow: 0 10px 30px rgba(0,0,0,0.5); z-index: 100; 
+/* RESOLUTION SWITCHES */
+#resGrid {
+    display: grid;
+    grid-template-columns: 1fr repeat(5, 1.2fr); 
+    gap: 5px 8px;
+    margin-top: 5px;
+    align-items: stretch;
+}
+.mp-label {
+    background: #333;
+    color: white;
+    font-weight: bold;
+    font-size: 10px;
+    text-align: center;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 8px;
+    padding: 8px 5px;
+}
+.res-switch {
+    background: #333;
+    color: white;
+    font-weight: 600;
+    font-size: 12px;
+    padding: 8px 0;
+    text-align: center;
+    border-radius: 8px;
+    cursor: pointer;
+    border: 1px solid #444;
+    transition: 0.1s;
+}
+.res-switch:active {
+    background: var(--accent);
+    color: black;
+    transform: scale(0.98);
+}
+.empty-cell {
+    visibility: hidden;
 }
 
-/* LORA MODAL STYLES */
-.modal {
-    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-    background: rgba(0,0,0,0.85); z-index: 200;
-    display: flex; justify-content: center; align-items: center;
+/* GALLERY GRID */
+#savedGalleryGrid {
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px;
+    padding-bottom: 20px;
 }
-.modal-content {
-    background: var(--bg); width: 90%; max-width: 500px; height: 80%;
-    border-radius: 16px; padding: 20px; display: flex; flex-direction: column;
-    border: 1px solid var(--border);
+.gal-thumb {
+    width: 100%; aspect-ratio: 1; object-fit: cover;
+    border-radius: 4px; border: 1px solid #333; cursor: pointer;
 }
+
+/* MODALS */
+.modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 200; display: flex; justify-content: center; align-items: center; flex-direction: column; }
+.modal-content { background: var(--bg); width: 90%; max-width: 500px; height: 80%; border-radius: 16px; padding: 20px; display: flex; flex-direction: column; border: 1px solid var(--border); }
 .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
 .modal-header h3 { margin: 0; color: var(--accent); }
 .close-btn { background: none; border: none; color: white; font-size: 20px; cursor: pointer; }
 #loraVerticalList { flex: 1; overflow-y: auto; margin-top: 10px; }
-.lora-row {
-    background: var(--panel); padding: 15px; margin-bottom: 8px; border-radius: 8px;
-    border: 1px solid var(--border); cursor: pointer; display: flex; align-items: center; justify-content: space-between;
-}
+.lora-row { background: var(--panel); padding: 15px; margin-bottom: 8px; border-radius: 8px; border: 1px solid var(--border); cursor: pointer; display: flex; align-items: center; justify-content: space-between; }
 .lora-row:active { background: var(--accent); color: black; }
-.lora-row span { font-size: 14px; font-weight: 500; }
 #loraSearch { padding: 10px; background: #222; border: 1px solid #444; color: white; border-radius: 6px; }
 
-#gallery { 
-    min-height: 250px; max-height: 70vh; 
-    background: #000; border-radius: 12px; display: flex; flex-direction: column; align-items: center; 
-    overflow-y: auto; border: 1px solid var(--border); position: relative; margin-top: 15px; padding: 10px; gap: 10px;
-}
+#gallery { min-height: 250px; max-height: 70vh; background: #000; border-radius: 12px; display: flex; flex-direction: column; align-items: center; overflow-y: auto; border: 1px solid var(--border); position: relative; margin-top: 15px; padding: 10px; gap: 10px; }
 .gen-result { max-width: 100%; object-fit: contain; border-radius: 4px; box-shadow: 0 2px 10px rgba(0,0,0,0.5); }
 .meta-box { background: var(--panel); padding: 15px; border-radius: 8px; font-family: monospace; font-size: 11px; color: #aaa; white-space: pre-wrap; word-break: break-all; border: 1px dashed #444; margin-top: 10px; }
 .spinner { width: 30px; height: 30px; border: 4px solid rgba(255,255,255,0.1); border-radius: 50%; border-top-color: var(--accent); animation: spin 0.8s ease-in-out infinite; margin: auto; display: none; }
