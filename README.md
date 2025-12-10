@@ -18,7 +18,16 @@
 * **Local Gallery:** Saves images directly to your device's documents folder.
 
 ## 📸 Screenshots
-*(PLACEHOLDER: Upload 2-3 screenshots of your app here. Use the `style.css` distinct look to show off the Cyberpunk/Flux themes. Visuals are CRITICAL for clicks.)*
+*
+![Screenshot_20251210_191811_Resolver](https://github.com/user-attachments/assets/d1c9e8e9-0028-4200-a7cd-34e6a3ff3688)
+![Screenshot_20251210_191903_Resolver](https://github.com/user-attachments/assets/47d87dd3-1380-4502-a6b4-4becfa6597de)
+![Screenshot_20251210_191901_Resolver](https://github.com/user-attachments/assets/5238bf4c-eb40-4b18-9eec-0a4dee6c13b0)
+![Screenshot_20251210_191856_Resolver](https://github.com/user-attachments/assets/5ed2bf1b-6966-45f5-b1cd-420b32b2898d)
+![Screenshot_20251210_191845_Resolver](https://github.com/user-attachments/assets/397420f4-43a5-4ccf-8efa-90f9b7c4b817)
+![Screenshot_20251210_191836_Resolver](https://github.com/user-attachments/assets/a34962b8-3a53-417d-9e50-0bc0335b63b7)
+![Screenshot_20251210_191826_Resolver](https://github.com/user-attachments/assets/6f21e813-d8b6-4275-8797-d92899f3a189)
+![Screenshot_20251210_191819_Resolver](https://github.com/user-attachments/assets/37e032ca-eff7-4be7-89d1-d0598078a792)
+*
 
 ## 🛠️ Tech Stack
 
