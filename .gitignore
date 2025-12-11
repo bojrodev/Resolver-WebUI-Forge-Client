@@ -6,3 +6,6 @@ build/
 .gradle/
 app/build/
 captures/
+*.jks
+*.keystore
+key.properties
