@@ -145,7 +145,8 @@ input:focus, select:focus, textarea:focus { border-color: var(--accent-primary);
 .q-title { font-weight: 800; font-size: 12px; color: var(--accent-secondary); letter-spacing: 0.5px; }
 .q-sub { color: var(--text-muted); font-size: 11px; margin-top: 2px; }
 
-#gallery { min-height: 100px; margin-top: 20px; display: flex; flex-direction: column-reverse; gap: 15px; }
+/* FIXED GALLERY: No Column Reverse to ensure Spinner stays on top */
+#gallery { min-height: 100px; margin-top: 20px; display: flex; flex-direction: column; gap: 15px; }
 .gen-result { width: 100%; border-radius: 16px; box-shadow: 0 10px 30px rgba(0,0,0,0.3); border: 1px solid var(--glass-border); animation: popIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); cursor: pointer; }
 @keyframes popIn { from { transform: scale(0.9); opacity: 0; } to { transform: scale(1); opacity: 1; } }
 

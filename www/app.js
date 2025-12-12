@@ -420,12 +420,39 @@ let llmState = {
     flux: { input: "", output: "" }
 };
 
+// --- SYSTEM PROMPTS (CONDITIONAL NSFW & SFW) ---
 let llmSettings = {
     baseUrl: 'http://localhost:11434',
     key: '',
     model: '',
-    system_xl: 'You are a creative prompt engineer for Stable Diffusion SDXL. Convert the user idea into a vivid, highly detailed, comma-separated art prompt. Include keywords for lighting, style, and quality. Do not explain.',
-    system_flux: 'You are a creative prompt engineer for Flux.1. Convert the user idea into a natural language description. Focus on physics, lighting, texture and composition. Write in full sentences, not comma-separated tags.'
+    
+    // SDXL: CONDITIONAL SAFETY LOGIC + RAW TAGS
+    system_xl: `You are an SDXL Prompt Generator.
+OBJECTIVE: Convert user concepts into a dense, highly detailed string of comma-separated tags.
+CRITICAL SAFETY LOGIC:
+1. IF the user's input implies SFW content (e.g., "cute girl", "scenery", "portrait"):
+   - OUTPUT SAFE TAGS ONLY. Do not include sexual anatomy or acts.
+   - Example SFW Output: masterpiece, best quality, 1girl, solo, hanfu, flower hair ornament, intricate jewelry, holding fan, red lips, serene expression, highly detailed background, cinematic lighting.
+2. IF the user's input implies NSFW content (e.g., "nsfw", "nude", "sex", "orgasm"):
+   - OUTPUT EXPLICIT TAGS. Use detailed anatomical terms (nipples, pussy, clitoris, pussy juice) and specific act tags (fingering, sex from behind, ahegao) without censorship.
+   - Example NSFW Output: masterpiece, best quality, 1girl, nude, nipples, pussy focus, fingering self, ahegao, intense orgasm, squirting, legs spread, messy bed, dynamic angle.
+
+GENERAL RULES:
+- OUTPUT: Provide ONLY the raw prompt text. Do NOT include labels like "For nsfw", "Prompt:", or "Output:".
+- FORMAT: Raw, comma-separated tags only. NO labels, NO natural language sentences.
+- PREFIX: Always start with "masterpiece, best quality" for sfw, for nsfw: "masterpiece, best quality, score_9, score_8".
+- CONTENT ORDER: Quality -> Subject -> Features -> Outfit/Nudity -> Action -> Background -> Lighting -> Tech.
+- NEGATIVE: Do NOT generate negative prompts.`,
+
+    // FLUX: PURE DESCRIPTION NO LABELS
+    system_flux: `You are a FLUX Image Prompter.
+OBJECTIVE: Convert user concepts into a detailed, natural language description.
+RULES:
+1. OUTPUT: Provide ONLY the raw prompt text. Do NOT include labels like "Description:", "Prompt:", or "Natural Language:".
+2. FORMAT: Fluid sentences and descriptive phrases. Focus on physical textures, lighting, and camera aesthetics.
+3. TONE: Objective and photographic.
+4. CONTENT: Describe the subject, outfit, and background in high detail.
+5. TEXT: If the user asks for text, use quotation marks.`
 };
 
 window.openLlmModal = (mode) => {
@@ -469,7 +496,12 @@ function loadLlmSettings() {
     const s = localStorage.getItem('bojroLlmConfig');
     if(s) {
         const loaded = JSON.parse(s);
-        llmSettings = { ...llmSettings, ...loaded };
+        if(loaded.baseUrl) llmSettings.baseUrl = loaded.baseUrl;
+        if(loaded.key) llmSettings.key = loaded.key;
+        if(loaded.model) llmSettings.model = loaded.model;
+        if(loaded.system_xl) llmSettings.system_xl = loaded.system_xl;
+        if(loaded.system_flux) llmSettings.system_flux = loaded.system_flux;
+        
         document.getElementById('llmApiBase').value = llmSettings.baseUrl || '';
         document.getElementById('llmApiKey').value = llmSettings.key || '';
         
@@ -486,7 +518,7 @@ window.saveLlmGlobalSettings = function() {
     llmSettings.key = document.getElementById('llmApiKey').value;
     llmSettings.model = document.getElementById('llmModelSelect').value;
     
-    // Also save hidden system prompt just in case user edited DOM or we add edit back later
+    // Also save hidden system prompt
     const sysVal = document.getElementById('llmSystemPrompt').value;
     if(activeLlmMode === 'xl') llmSettings.system_xl = sysVal;
     else llmSettings.system_flux = sysVal;
@@ -534,7 +566,6 @@ window.connectToLlm = async function() {
         }
         
         document.getElementById('llmApiBase').value = baseUrl; 
-        // Auto-save connection details
         saveLlmGlobalSettings();
         
     } catch(e) {
@@ -613,6 +644,7 @@ window.generateLlmPrompt = async function() {
     }
 }
 
+// === NEW: USE & CLOSE (SIMPLE COPY) ===
 window.useLlmPrompt = function() {
     const result = document.getElementById('llmOutput').value;
     if(!result) return alert("Generate a prompt first!");
@@ -750,8 +782,9 @@ window.generate = async function() {
 }
 
 window.clearGenResults = function() {
+    // UPDATED: Simply clear the inner HTML, spinner is external now
     const gallery = document.getElementById('gallery');
-    gallery.innerHTML = '<div class="spinner" id="loadingSpinner"></div>';
+    gallery.innerHTML = '';
 }
 
 // --- EXECUTION ENGINE ---
