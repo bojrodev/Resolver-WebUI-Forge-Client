@@ -5,7 +5,9 @@ const Filesystem = window.Capacitor ? window.Capacitor.Plugins.Filesystem : null
 const Toast = window.Capacitor ? window.Capacitor.Plugins.Toast : null;
 const LocalNotifications = window.Capacitor ? window.Capacitor.Plugins.LocalNotifications : null;
 const App = window.Capacitor ? window.Capacitor.Plugins.App : null;
-const CapacitorHttp = window.Capacitor ? window.Capacitor.Plugins.CapacitorHttp : null; 
+const CapacitorHttp = window.Capacitor ? window.Capacitor.Plugins.CapacitorHttp : null;
+// FIX: Link the Custom Native Service Plugin
+const ResolverService = window.Capacitor ? window.Capacitor.Plugins.ResolverService : null;
 
 // --- STATE ---
 let currentMode = 'xl'; 
@@ -30,7 +32,7 @@ let isSingleJobRunning = false;
 
 // Notification Throttling Control
 let notificationUpdateThrottle = 0; // Tracks last update time
-const NOTIFICATION_UPDATE_INTERVAL_MS = 5000; 
+const NOTIFICATION_UPDATE_INTERVAL_MS = 1000; // Faster updates for native progress bar
 
 // Gallery Selection State
 let isSelectionMode = false;
@@ -38,21 +40,28 @@ let selectedImageIds = new Set();
 
 // --- INITIALIZATION ---
 window.onload = function() {
-    loadHostIp();
-    loadAutoDlState();
-    setupBackgroundListeners();
-    createNotificationChannel(); 
-    loadLlmSettings(); // Load magic prompt settings
+    try {
+        loadHostIp();
+        loadAutoDlState();
+        setupBackgroundListeners();
+        // Only create local channel if we might use fallback (not critical for native)
+        createNotificationChannel(); 
+        loadLlmSettings(); // Load magic prompt settings
+    } catch (e) {
+        console.error("Initialization Error:", e);
+        alert("Startup Warning: " + e.message);
+    }
 }
 
 // --- BACKGROUND / NOTIFICATION LOGIC ---
 async function createNotificationChannel() {
     if (!LocalNotifications) return;
     try {
+        // Fallback channel for web/non-native (Importance 2 = LOW/SILENT)
         await LocalNotifications.createChannel({
             id: 'batch_channel',
             name: 'Generation Status',
-            importance: 3, 
+            importance: 2, 
             visibility: 1,
             vibration: false 
         });
@@ -76,20 +85,51 @@ function setupBackgroundListeners() {
 
     // 2. When User Opens App (Foreground)
     App.addListener('resume', async () => {
-        const pending = await LocalNotifications.getPending();
-        if (pending.notifications.length > 0) {
-            await LocalNotifications.cancel(pending);
-        }
+        // Optional: Clear local notifications when returning to app
+        try {
+            const pending = await LocalNotifications.getPending();
+            if (pending.notifications.length > 0) {
+                await LocalNotifications.cancel(pending);
+            }
+        } catch (e) { console.error("Resume Error", e); }
     });
 }
 
+// FIX: Updated Notification Logic for Persistent Progress Bar
 async function updateBatchNotification(title, force = false, body = "") {
-    if (!LocalNotifications) return;
     
+    // 1. Calculate Progress Percentage for Native Bar
+    let progressVal = 0;
+    try {
+        if (body && body.includes(" / ")) {
+            const parts = body.split(" / ");
+            // Extract numbers from strings like "Step 5"
+            const current = parseInt(parts[0].replace(/\D/g, '')) || 0;
+            const total = parseInt(parts[1].replace(/\D/g, '')) || 1;
+            if (total > 0) {
+                progressVal = Math.floor((current / total) * 100);
+            }
+        }
+    } catch (e) { progressVal = 0; }
+
+    // 2. PRIMARY: Call Native Service (Keeps App Alive & Single Persistent Notification)
+    if (ResolverService) {
+        try {
+            await ResolverService.updateProgress({
+                title: title,
+                progress: progressVal
+            });
+            // CRITICAL: Return here to prevent double notification from LocalNotifications
+            return; 
+        } catch (e) {
+            console.error("Native Service Error:", e);
+        }
+    }
+
+    // 3. FALLBACK: Local Notification (Only if Native Service fails or missing)
     if (!document.hidden && !force && title !== "Batch Complete!") return; 
 
     const now = Date.now();
-    
     if (!force && title !== "Batch Complete!") {
         if (now < notificationUpdateThrottle + NOTIFICATION_UPDATE_INTERVAL_MS) {
             return;
@@ -97,20 +137,23 @@ async function updateBatchNotification(title, force = false, body = "") {
         notificationUpdateThrottle = now;
     }
 
-    try {
-        await LocalNotifications.schedule({
-            notifications: [{
-                title: title,
-                body: body, 
-                id: 1001, 
-                channelId: 'batch_channel',
-                ongoing: true, 
-                onlyAlertOnce: true, 
-                autoCancel: false,
-            }]
-        });
-    } catch(e) {
-        console.error("Notif Schedule Error:", e);
+    if (LocalNotifications) {
+        try {
+            await LocalNotifications.schedule({
+                notifications: [{
+                    title: title,
+                    body: body, 
+                    id: 1001, 
+                    channelId: 'batch_channel',
+                    ongoing: true, 
+                    onlyAlertOnce: true, 
+                    autoCancel: false,
+                    smallIcon: "ic_launcher" // Ensure icon is set
+                }]
+            });
+        } catch(e) {
+            console.error("Notif Schedule Error:", e);
+        }
     }
 }
 
@@ -766,6 +809,11 @@ window.processQueue = async function() {
     btn.innerText = oldText; btn.disabled = false;
     document.getElementById('queueProgressBox').classList.add('hidden');
     
+    // Stop Native Service
+    if (ResolverService) {
+        try { await ResolverService.stop(); } catch(e){}
+    }
+
     // Final notification
     updateBatchNotification("Batch Complete!", true, "All images generated.");
     // Clear notification if app comes to foreground later
@@ -778,6 +826,12 @@ window.generate = async function() {
     isSingleJobRunning = true; 
     await runJob(job, false);
     isSingleJobRunning = false;
+    
+    // Stop Native Service
+    if (ResolverService) {
+        try { await ResolverService.stop(); } catch(e){}
+    }
+
     updateBatchNotification("Generation Complete!", true, "1 image generated.");
 }
 
