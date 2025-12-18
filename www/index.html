@@ -570,9 +570,36 @@
 
     <div id="loraModal" class="modal hidden">
         <div class="modal-content">
-            <div class="modal-header"><h3>Select LoRA</h3><button onclick="closeLoraModal()" class="close-btn">×</button></div>
+            <div class="modal-header">
+                <h3>Select LoRA</h3>
+                <div style="display:flex; gap:10px; align-items:center;">
+                    <button onclick="openFolderManager()" class="btn-icon" style="width:32px; height:32px; display:flex; align-items:center; justify-content:center;">
+                        <i data-lucide="settings-2" size="16"></i>
+                    </button>
+                    <button onclick="closeLoraModal()" class="close-btn">×</button>
+                </div>
+            </div>
+            
             <input type="text" id="loraSearch" placeholder="Search..." onkeyup="filterLoras()">
-            <div id="loraVerticalList"></div>
+            
+            <div id="loraFolderChips" class="folder-chips-row">
+            </div>
+            
+            <div id="loraVerticalList" style="flex: 1; overflow-y: auto; padding-bottom: 20px;"></div>
+        </div>
+    </div>
+    
+    <div id="folderManagerModal" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Manage Folders</h3>
+                <button onclick="closeFolderManager()" class="close-btn">×</button>
+            </div>
+            <p style="font-size:12px; color:var(--text-muted); margin-bottom:10px; line-height:1.4;">
+                Tap the heart to add folders to your favorites filter bar.
+            </p>
+            <div id="folderManagerList" class="folder-list-vertical" style="max-height: 60vh; overflow-y: auto;">
+            </div>
         </div>
     </div>
 
@@ -689,6 +716,7 @@
     </div>
 
     <script src="neo.js"></script>
+    <script src="lora.js"></script>
     <script src="app.js"></script>
 </body>
 </html>

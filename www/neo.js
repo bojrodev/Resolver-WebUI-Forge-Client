@@ -1,16 +1,17 @@
 /**
- * NEO MODULE
+ * NEO MODULE (Cleaned)
  * Specialized logic for Z-Image Turbo (Qwen) and S3-DiT Architectures.
  * Isolated from main app logic to prevent regression.
+ * * NOTE: LoRA logic has been moved to lora.js
  */
 
 const Neo = {
     // defaults optimized for Z-Image Turbo (Decoupled-DMD) with LCM
     defaults: {
         steps: 8,
-        cfg: 1.0,  // UPDATED: Default CFG is now 1.0
+        cfg: 1.0,  
         sampler: "LCM", 
-        scheduler: "Normal" // UPDATED: Default Scheduler is now Normal
+        scheduler: "Normal"
     },
 
     // Called by app.js when models are fetched
@@ -42,7 +43,7 @@ const Neo = {
              sel.appendChild(new Option(s.name, s.name));
          });
          
-         // Set LCM as default if available
+         // Set LCM as default if available (Critical for Turbo)
          if(Array.from(sel.options).some(o => o.value === "LCM")) {
              sel.value = "LCM";
          } else if(Array.from(sel.options).some(o => o.value === "Euler a")) {
@@ -118,8 +119,8 @@ const Neo = {
         const vae = document.getElementById('qwen_vae').value;
         const te = document.getElementById('qwen_te').value;
         
-        // UPDATED: Get Low Bits setting
-        const bits = document.getElementById('qwen_bits').value || "Automatic (fp16 LoRA)";
+        // Get Low Bits setting (from app.js UI logic)
+        const bits = document.getElementById('qwen_bits') ? document.getElementById('qwen_bits').value : "Automatic (fp16 LoRA)";
 
         const modulesToLoad = [vae, te].filter(v => v && v !== "Automatic" && v !== "None");
 
@@ -127,7 +128,7 @@ const Neo = {
             "sd_model_checkpoint": modelTitle,
             "sd_vae": vae === "Automatic" ? "Automatic" : "Automatic", 
             "forge_additional_modules": modulesToLoad, 
-            "forge_unet_storage_dtype": bits // UPDATED: Dynamic low bits
+            "forge_unet_storage_dtype": bits
         };
 
         // 3. Construct Payload

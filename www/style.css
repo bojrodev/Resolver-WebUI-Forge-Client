@@ -632,8 +632,113 @@ input[readonly], textarea[readonly] {
 }
 
 /* =========================================
-   LORA BROWSER STYLES
+   10. LORA BROWSER & FOLDER FILTER STYLES (NEW)
    ========================================= */
+
+/* --- NEW: Horizontal Chip Container --- */
+.folder-chips-row {
+    display: flex;
+    gap: 8px;
+    overflow-x: auto;
+    padding: 0 4px 10px 4px; /* Space for scrollbar/touch */
+    margin-bottom: 10px;
+    white-space: nowrap;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none; /* Hide scrollbar Firefox */
+}
+.folder-chips-row::-webkit-scrollbar {
+    display: none; /* Hide scrollbar Chrome/Safari */
+}
+
+/* --- NEW: Individual Chip --- */
+.folder-chip {
+    background: var(--bg-input);
+    border: 1px solid var(--border-color);
+    color: var(--text-muted);
+    padding: 8px 16px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    flex-shrink: 0;
+    text-transform: uppercase;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.folder-chip:active {
+    transform: scale(0.95);
+}
+
+.folder-chip.active {
+    background: var(--accent-primary);
+    color: #000; /* Contrast text */
+    border-color: var(--accent-primary);
+    font-weight: 800;
+    box-shadow: 0 2px 8px rgba(var(--accent-primary-rgb), 0.3);
+}
+
+/* --- NEW: Folder Manager List (Vertical) --- */
+.folder-list-vertical {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.folder-item-row {
+    background: var(--bg-panel);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    padding: 12px 15px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    transition: background 0.2s;
+}
+
+.folder-item-name {
+    font-size: 13px;
+    color: var(--text-main);
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.folder-item-count {
+    font-size: 10px;
+    color: var(--text-muted);
+    background: var(--bg-input);
+    padding: 2px 6px;
+    border-radius: 4px;
+}
+
+/* Heart Button */
+.folder-heart-btn {
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    color: var(--text-muted);
+    padding: 8px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+}
+
+.folder-heart-btn.active {
+    color: var(--error); /* Red heart */
+    fill: var(--error);
+}
+
+.folder-heart-btn:active {
+    transform: scale(1.2);
+}
+
+/* Existing LoRA Styles below... */
 
 .lora-item-row {
     background: var(--bg-panel);
@@ -730,7 +835,7 @@ input[readonly], textarea[readonly] {
 }
 
 /* =========================================
-   10. DOCK (BOTTOM NAVIGATION)
+   11. DOCK & OTHER UTILS
    ========================================= */
 .dock-wrapper {
     position: fixed;
@@ -796,7 +901,7 @@ input[readonly], textarea[readonly] {
 }
 
 /* =========================================
-   11. LIGHTBOX / UPLOAD
+   12. LIGHTBOX / UPLOAD
    ========================================= */
 #fullScreenModal {
     background: #000000; /* Always black for image viewing */
@@ -879,7 +984,7 @@ input[readonly], textarea[readonly] {
 
 
 /* =========================================
-   12. BOJRO POWER BUTTON INTEGRATION (FIXED)
+   13. BOJRO POWER BUTTON INTEGRATION (FIXED)
    ========================================= */
 
 #power-btn-mini {

@@ -1,4 +1,7 @@
-lucide.createIcons();
+// Initialize Icons
+if (typeof lucide !== 'undefined') {
+    lucide.createIcons();
+}
 
 // --- CAPACITOR PLUGINS ---
 const Filesystem = window.Capacitor ? window.Capacitor.Plugins.Filesystem : null;
@@ -9,7 +12,7 @@ const CapacitorHttp = window.Capacitor ? window.Capacitor.Plugins.CapacitorHttp 
 const ResolverService = window.Capacitor ? window.Capacitor.Plugins.ResolverService : null;
 
 // --- STATE ---
-let currentMode = 'xl'; 
+let currentMode = 'xl';
 let currentTask = 'txt'; // 'txt', 'inp'
 let currentInpaintMode = 'fill'; // 'fill' (Whole) or 'mask' (Only Masked)
 let currentBrushMode = 'draw'; // 'draw' or 'erase'
@@ -23,13 +26,24 @@ let editorTranslateY = 0;
 let editorMinScale = 1;
 let editorTargetW = 1024;
 let editorTargetH = 1024;
-let cropBox = { x: 0, y: 0, w: 0, h: 0 }; 
+let cropBox = {
+    x: 0,
+    y: 0,
+    w: 0,
+    h: 0
+};
 
 let isEditorActive = false;
 let pinchStartDist = 0;
-let panStart = { x: 0, y: 0 };
+let panStart = {
+    x: 0,
+    y: 0
+};
 let startScale = 1;
-let startTranslate = { x: 0, y: 0 };
+let startTranslate = {
+    x: 0,
+    y: 0
+};
 
 // MAIN CANVAS STATE (Inpainting)
 let mainCanvas, mainCtx;
@@ -39,35 +53,53 @@ let isDrawing = false;
 let historyStates = [];
 
 // DATA & PAGINATION
-let historyImagesData = []; 
-let currentGalleryImages = []; 
+let historyImagesData = [];
+let currentGalleryImages = [];
 let currentGalleryIndex = 0;
 let galleryPage = 1;
 const ITEMS_PER_PAGE = 50;
 
-let allLoras = []; 
-let loraConfigs = {}; 
-let loraDebounceTimer;
+// LoRA Configuration Storage
+let loraConfigs = {};
 let HOST = "";
 
 // QUEUE PERSISTENCE
-let queueState = { ongoing: [], next: [], completed: [] };
+let queueState = {
+    ongoing: [],
+    next: [],
+    completed: []
+};
 let isQueueRunning = false;
 let totalBatchSteps = 0;
 let currentBatchProgress = 0;
-let isSingleJobRunning = false; 
+let isSingleJobRunning = false;
 
 let isSelectionMode = false;
 let selectedImageIds = new Set();
 let currentAnalyzedPrompts = null;
 
 let llmSettings = {
-    baseUrl: 'http://localhost:11434', key: '', model: '',
+    baseUrl: 'http://localhost:11434',
+    key: '',
+    model: '',
     system_xl: `You are a Prompt Generator for Image Generation. OBJECTIVE: Convert user concepts into a dense, highly detailed string of comma-separated tags.`,
     system_flux: `You are a Image Prompter. OBJECTIVE: Convert user concepts into a detailed, natural language description.`,
     system_qwen: `You are a Prompt Generator for Z-Image Turbo. OBJECTIVE: Precise, high-fidelity natural language descriptions.`
 };
-let llmState = { xl: { input: "", output: "" }, flux: { input: "", output: "" }, qwen: { input: "", output: "" } };
+let llmState = {
+    xl: {
+        input: "",
+        output: ""
+    },
+    flux: {
+        input: "",
+        output: ""
+    },
+    qwen: {
+        input: "",
+        output: ""
+    }
+};
 let activeLlmMode = 'xl';
 
 // --- INITIALIZATION ---
@@ -76,32 +108,78 @@ window.onload = function() {
         if (typeof lucide !== 'undefined') {
             lucide.createIcons();
         }
-        
-        injectConfigModal(); 
+
+        injectConfigModal();
         loadHostIp();
-        loadQueueState(); 
-        renderQueueAll(); 
+        loadQueueState();
+        renderQueueAll();
         loadAutoDlState();
         setupBackgroundListeners();
-        createNotificationChannel(); 
-        loadLlmSettings(); 
-        loadPowerSettings(); 
-        
+        createNotificationChannel();
+        loadLlmSettings();
+        loadPowerSettings();
+
         // Init Inpainting Systems
-        initMainCanvas(); 
+        initMainCanvas();
         setupEditorEvents();
 
         // Battery Check
         if (!localStorage.getItem('bojroBatteryOpt')) {
             const batModal = document.getElementById('batteryModal');
-            if(batModal) batModal.classList.remove('hidden');
+            if (batModal) batModal.classList.remove('hidden');
         }
 
         // Auto-Connect
         if (document.getElementById('hostIp').value) {
             console.log("Auto-connecting...");
-            window.connect(true); 
+            window.connect(true);
         }
+
+        // =========================================================================
+        // NEO BRIDGE: CONNECTS LORA.JS TO APP.JS
+        // Allows the external LoraManager to inject prompts into the active UI
+        // =========================================================================
+        if (!window.Neo) window.Neo = {};
+        
+        window.Neo.appInjectConfig = async function(alias, name, textArea) {
+            // 1. Get path from the LoraManager (if available)
+            const loraEntry = window.LoraManager && window.LoraManager.allLoras 
+                ? window.LoraManager.allLoras.find(l => l.name === name) 
+                : null;
+
+            let config = loraConfigs[name];
+
+            // 2. Fetch Config if missing, using the helper
+            if (!config && loraEntry && loraEntry.path) {
+                if (Toast) Toast.show({
+                    text: 'Fetching config...',
+                    duration: 'short'
+                });
+                config = await loadSidecarConfig(name, loraEntry.path);
+            }
+
+            // 3. Build Tag
+            const weight = config ? config.weight : 1.0;
+            const trigger = config && config.trigger ? ` ${config.trigger}` : "";
+            const tag = ` <lora:${alias}:${weight}>${trigger}`;
+
+            // 4. Inject into Text Area
+            if (!textArea.value.includes(`<lora:${alias}:`)) {
+                textArea.value = textArea.value.trim() + tag;
+                if (Toast) Toast.show({
+                    text: `Added ${alias}`,
+                    duration: 'short'
+                });
+            } else {
+                if (Toast) Toast.show({
+                    text: `Already added`,
+                    duration: 'short'
+                });
+            }
+
+            document.getElementById('loraModal').classList.add('hidden');
+        };
+
         console.log("App Initialized Successfully");
     } catch (e) {
         console.error("Initialization Error:", e);
@@ -128,7 +206,7 @@ function injectConfigModal() {
                         <span>Preferred Weight</span>
                         <span id="cfgWeightDisplay" style="color:var(--accent-primary);">1.0</span>
                     </label>
-                    <input type="range" id="cfgWeight" min="-2" max="2" step="0.1" value="1" oninput="updateWeightDisplay(this.value)" style="margin-top:5px;">
+                    <input type="range" id="cfgWeight" class="orange-slider" min="-2" max="2" step="0.1" value="1" oninput="updateWeightDisplay(this.value)" style="margin-top:5px;">
                 </div>
                 <div>
                     <label>Activation / Trigger Text</label>
@@ -140,12 +218,23 @@ function injectConfigModal() {
     `;
     document.body.appendChild(div);
 }
-
+// *** BATTERY FIX: Dynamic Plugin Access ***
 window.requestBatteryPerm = function() {
-    if (ResolverService) ResolverService.requestBatteryOpt();
+    // FIX: Grab plugin dynamically to solve initialization race condition
+    const svc = (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.ResolverService) ? window.Capacitor.Plugins.ResolverService : ResolverService;
+
+    if (svc) {
+        svc.requestBatteryOpt();
+    } else {
+        console.log("ResolverService plugin not found");
+    }
+
     localStorage.setItem('bojroBatteryOpt', 'true');
     document.getElementById('batteryModal').classList.add('hidden');
-    if(Toast) Toast.show({text: 'Opening Settings...', duration: 'short'});
+    if (Toast) Toast.show({
+        text: 'Opening Settings...',
+        duration: 'short'
+    });
 }
 
 window.skipBatteryPerm = function() {
@@ -158,11 +247,11 @@ function loadQueueState() {
     if (saved) {
         try {
             const parsed = JSON.parse(saved);
-            if(parsed.ongoing) queueState.ongoing = parsed.ongoing;
-            if(parsed.next) queueState.next = parsed.next;
-            if(parsed.completed) queueState.completed = parsed.completed;
+            if (parsed.ongoing) queueState.ongoing = parsed.ongoing;
+            if (parsed.next) queueState.next = parsed.next;
+            if (parsed.completed) queueState.completed = parsed.completed;
             updateQueueBadge();
-        } catch(e) {}
+        } catch (e) {}
     }
 }
 
@@ -174,7 +263,7 @@ function saveQueueState() {
 function updateQueueBadge() {
     const totalPending = queueState.ongoing.length + queueState.next.length;
     const badge = document.getElementById('queueBadge');
-    if(badge) {
+    if (badge) {
         badge.innerText = totalPending;
         badge.classList.toggle('hidden', totalPending === 0);
     }
@@ -197,7 +286,7 @@ async function createNotificationChannel() {
             visibility: 1,
             vibration: false
         });
-    } catch(e) {}
+    } catch (e) {}
 }
 
 function setupBackgroundListeners() {
@@ -209,8 +298,9 @@ function setupBackgroundListeners() {
                 if (pending.notifications.length > 0) await LocalNotifications.cancel(pending);
             } catch (e) {}
         }
-        if(!allLoras.length && document.getElementById('hostIp').value) {
-             window.connect(true);
+        // Only auto-connect if we don't have models loaded
+        if (document.getElementById('hostIp').value) {
+            window.connect(true);
         }
     });
 }
@@ -224,7 +314,9 @@ async function updateBatchNotification(title, force = false, body = "") {
             const total = parseInt(parts[1].replace(/\D/g, '')) || 1;
             if (total > 0) progressVal = Math.floor((current / total) * 100);
         }
-    } catch (e) { progressVal = 0; }
+    } catch (e) {
+        progressVal = 0;
+    }
 
     if (ResolverService) {
         try {
@@ -234,7 +326,9 @@ async function updateBatchNotification(title, force = false, body = "") {
                 progress: progressVal
             });
             return;
-        } catch (e) { console.error("Native Service Error:", e); }
+        } catch (e) {
+            console.error("Native Service Error:", e);
+        }
     }
 }
 
@@ -250,7 +344,7 @@ async function sendCompletionNotification(msg) {
                     smallIcon: "ic_launcher"
                 }]
             });
-        } catch(e) {}
+        } catch (e) {}
     }
 }
 
@@ -266,7 +360,10 @@ window.toggleTheme = function() {
     lucide.createIcons();
 }
 
-const getHeaders = () => ({ 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': 'true' });
+const getHeaders = () => ({
+    'Content-Type': 'application/json',
+    'ngrok-skip-browser-warning': 'true'
+});
 
 async function saveToMobileGallery(base64Data) {
     try {
@@ -274,9 +371,23 @@ async function saveToMobileGallery(base64Data) {
         if (isNative) {
             const cleanBase64 = base64Data.split(',')[1];
             const fileName = `Bojro_${Date.now()}.png`;
-            try { await Filesystem.mkdir({ path: 'Resolver', directory: 'DOCUMENTS', recursive: false }); } catch (e) {}
-            await Filesystem.writeFile({ path: `Resolver/${fileName}`, data: cleanBase64, directory: 'DOCUMENTS' });
-            if(Toast) await Toast.show({ text: 'Image saved to Documents/Resolver', duration: 'short', position: 'bottom' });
+            try {
+                await Filesystem.mkdir({
+                    path: 'Resolver',
+                    directory: 'DOCUMENTS',
+                    recursive: false
+                });
+            } catch (e) {}
+            await Filesystem.writeFile({
+                path: `Resolver/${fileName}`,
+                data: cleanBase64,
+                directory: 'DOCUMENTS'
+            });
+            if (Toast) await Toast.show({
+                text: 'Image saved to Documents/Resolver',
+                duration: 'short',
+                position: 'bottom'
+            });
         } else {
             const link = document.createElement('a');
             link.href = base64Data;
@@ -285,34 +396,58 @@ async function saveToMobileGallery(base64Data) {
             link.click();
             document.body.removeChild(link);
         }
-    } catch (e) { console.error("Save failed", e); }
+    } catch (e) {
+        console.error("Save failed", e);
+    }
 }
 
 function getVramMapping() {
     const profile = document.getElementById('vramProfile').value;
-    switch(profile) {
-        case 'low': return 4096; case 'mid': return 1536; case 'high': return 4096; default: return 1536;
+    switch (profile) {
+        case 'low':
+            return 4096;
+        case 'mid':
+            return 1536;
+        case 'high':
+            return 4096;
+        default:
+            return 1536;
     }
 }
 
 // DB
 const request = indexedDB.open("BojroHybridDB", 1);
-request.onupgradeneeded = e => { db = e.target.result; db.createObjectStore("images", { keyPath: "id", autoIncrement: true }); };
-request.onsuccess = e => { db = e.target.result; loadGallery(); };
+request.onupgradeneeded = e => {
+    db = e.target.result;
+    db.createObjectStore("images", {
+        keyPath: "id",
+        autoIncrement: true
+    });
+};
+request.onsuccess = e => {
+    db = e.target.result;
+    loadGallery();
+};
 
 function saveImageToDB(base64) {
     return new Promise((resolve, reject) => {
-        if(!db) { resolve(null); return; }
+        if (!db) {
+            resolve(null);
+            return;
+        }
         const tx = db.transaction(["images"], "readwrite");
         const store = tx.objectStore("images");
-        const req = store.add({ data: base64, date: new Date().toLocaleString() });
+        const req = store.add({
+            data: base64,
+            date: new Date().toLocaleString()
+        });
         req.onsuccess = (e) => resolve(e.target.result);
         req.onerror = () => resolve(null);
     });
 }
 
 window.clearDbGallery = function() {
-    if(confirm("Delete entire history? This cannot be undone.")) {
+    if (confirm("Delete entire history? This cannot be undone.")) {
         const tx = db.transaction(["images"], "readwrite");
         tx.objectStore("images").clear();
         tx.oncomplete = () => {
@@ -331,15 +466,19 @@ window.clearDbGallery = function() {
 
 function setupEditorEvents() {
     const cvs = document.getElementById('editorCanvas');
-    if(!cvs) return;
-    
+    if (!cvs) return;
+
     cvs.style.touchAction = 'none';
 
     // Touch
-    cvs.addEventListener('touchstart', handleTouchStart, { passive: false });
-    cvs.addEventListener('touchmove', handleTouchMove, { passive: false });
+    cvs.addEventListener('touchstart', handleTouchStart, {
+        passive: false
+    });
+    cvs.addEventListener('touchmove', handleTouchMove, {
+        passive: false
+    });
     cvs.addEventListener('touchend', handleTouchEnd);
-    
+
     // Mouse
     cvs.addEventListener('mousedown', handleMouseDown);
     document.addEventListener('mousemove', handleMouseMove);
@@ -348,15 +487,15 @@ function setupEditorEvents() {
 
 window.openEditorFromFile = function(e) {
     const file = e.target.files[0];
-    if(!file) return;
-    
+    if (!file) return;
+
     const reader = new FileReader();
     reader.onload = (evt) => {
         const img = new Image();
         img.src = evt.target.result;
         img.onload = () => {
             editorImage = img;
-            
+
             // 1. Show modal FIRST to ensure canvas has dimensions
             document.getElementById('editorModal').classList.remove('hidden');
 
@@ -365,12 +504,12 @@ window.openEditorFromFile = function(e) {
                 editorTargetW = 1024;
                 editorTargetH = 1024;
                 recalcEditorLayout();
-                resetEditorView(); // <--- FIX: Forces proper centering logic
+                resetEditorView();
             }, 50);
         };
     };
     reader.readAsDataURL(file);
-    e.target.value = ''; 
+    e.target.value = '';
 }
 
 window.setEditorRatio = function(targetW, targetH) {
@@ -381,29 +520,29 @@ window.setEditorRatio = function(targetW, targetH) {
 }
 
 function recalcEditorLayout() {
-    if(!editorImage) return;
+    if (!editorImage) return;
     const viewport = document.getElementById('editorViewport');
     const cvs = document.getElementById('editorCanvas');
-    
+
     // 1. Resize canvas to match screen
     cvs.width = viewport.clientWidth;
     cvs.height = viewport.clientHeight;
-    
+
     // 2. Calculate Box Size (fit within canvas with padding)
     const padding = 20;
     const availableW = cvs.width - (padding * 2);
     const availableH = cvs.height - (padding * 2);
-    
+
     const targetRatio = editorTargetW / editorTargetH;
-    
+
     let boxW = availableW;
     let boxH = boxW / targetRatio;
-    
+
     if (boxH > availableH) {
         boxH = availableH;
         boxW = boxH * targetRatio;
     }
-    
+
     // 3. Center the box
     cropBox = {
         x: (cvs.width - boxW) / 2,
@@ -411,72 +550,72 @@ function recalcEditorLayout() {
         w: boxW,
         h: boxH
     };
-    
+
     drawEditor();
 }
 
 function resetEditorView() {
-    if(!editorImage) return;
-    
+    if (!editorImage) return;
+
     // Calculate min scale to cover the crop box
     const scaleW = cropBox.w / editorImage.naturalWidth;
     const scaleH = cropBox.h / editorImage.naturalHeight;
     editorMinScale = Math.max(scaleW, scaleH);
-    
+
     // Set current scale to min (cover)
     editorScale = editorMinScale;
-    
+
     // Center image relative to the CANVAS center
     editorTranslateX = (document.getElementById('editorCanvas').width - (editorImage.naturalWidth * editorScale)) / 2;
     editorTranslateY = (document.getElementById('editorCanvas').height - (editorImage.naturalHeight * editorScale)) / 2;
-    
+
     // Reset Sliders
     document.getElementById('editScale').value = 1;
     document.getElementById('editX').value = 0;
     document.getElementById('editY').value = 0;
-    
+
     drawEditor();
 }
 
 window.updateEditorTransform = function() {
-    if(!editorImage) return;
-    
+    if (!editorImage) return;
+
     const scaleMult = parseFloat(document.getElementById('editScale').value);
     const offX = parseFloat(document.getElementById('editX').value);
     const offY = parseFloat(document.getElementById('editY').value);
-    
+
     const cvs = document.getElementById('editorCanvas');
-    
+
     // Calculate current dimensions
     const currentW = editorImage.naturalWidth * (editorMinScale * scaleMult);
     const currentH = editorImage.naturalHeight * (editorMinScale * scaleMult);
-    
+
     // Base is centered relative to canvas
     const baseX = (cvs.width - currentW) / 2;
     const baseY = (cvs.height - currentH) / 2;
-    
+
     editorScale = editorMinScale * scaleMult;
     editorTranslateX = baseX + offX;
     editorTranslateY = baseY + offY;
-    
+
     drawEditor();
 }
 
 function drawEditor() {
-    if(!editorImage) return;
+    if (!editorImage) return;
     const cvs = document.getElementById('editorCanvas');
     const ctx = cvs.getContext('2d');
-    
+
     // 1. Clear
     ctx.clearRect(0, 0, cvs.width, cvs.height);
-    
+
     // 2. Draw Image (Transformed)
     ctx.save();
     ctx.translate(editorTranslateX, editorTranslateY);
     ctx.scale(editorScale, editorScale);
     ctx.drawImage(editorImage, 0, 0);
     ctx.restore();
-    
+
     // 3. Draw Dimmed Overlay with "Hole" using Path Winding
     ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
     ctx.beginPath();
@@ -485,7 +624,7 @@ function drawEditor() {
     // Inner Rectangle (Counter-Clockwise) -> Creates Hole
     ctx.rect(cropBox.x + cropBox.w, cropBox.y, -cropBox.w, cropBox.h);
     ctx.fill();
-    
+
     // 4. Draw Border
     ctx.strokeStyle = 'white';
     ctx.lineWidth = 2;
@@ -494,26 +633,36 @@ function drawEditor() {
 
 // Touch Handling
 function handleTouchStart(e) {
-    if(e.target.closest('input')) return;
+    if (e.target.closest('input')) return;
     e.preventDefault();
-    if(e.touches.length === 2) {
+    if (e.touches.length === 2) {
         pinchStartDist = getDist(e.touches[0], e.touches[1]);
         startScale = editorScale;
-        startTranslate = { x: editorTranslateX, y: editorTranslateY };
+        startTranslate = {
+            x: editorTranslateX,
+            y: editorTranslateY
+        };
     } else if (e.touches.length === 1) {
         isEditorActive = true;
-        panStart = { x: e.touches[0].clientX, y: e.touches[0].clientY };
-        startTranslate = { x: editorTranslateX, y: editorTranslateY };
+        panStart = {
+            x: e.touches[0].clientX,
+            y: e.touches[0].clientY
+        };
+        startTranslate = {
+            x: editorTranslateX,
+            y: editorTranslateY
+        };
     }
 }
+
 function handleTouchMove(e) {
-    if(e.target.closest('input')) return;
+    if (e.target.closest('input')) return;
     e.preventDefault();
-    if(e.touches.length === 2 && pinchStartDist > 0) {
+    if (e.touches.length === 2 && pinchStartDist > 0) {
         const dist = getDist(e.touches[0], e.touches[1]);
         const scaleFactor = dist / pinchStartDist;
         editorScale = startScale * scaleFactor;
-        
+
         const cvs = document.getElementById('editorCanvas');
         const centerX = cvs.width / 2;
         const centerY = cvs.height / 2;
@@ -528,46 +677,68 @@ function handleTouchMove(e) {
         drawEditor();
     }
 }
-function handleTouchEnd() { isEditorActive = false; pinchStartDist = 0; }
-function handleMouseDown(e) { isEditorActive = true; panStart = { x: e.clientX, y: e.clientY }; startTranslate = { x: editorTranslateX, y: editorTranslateY }; }
-function handleMouseMove(e) { 
-    if(!isEditorActive) return; 
-    e.preventDefault(); 
-    const dx = e.clientX - panStart.x; 
-    const dy = e.clientY - panStart.y; 
-    editorTranslateX = startTranslate.x + dx; 
-    editorTranslateY = startTranslate.y + dy; 
-    drawEditor(); 
+
+function handleTouchEnd() {
+    isEditorActive = false;
+    pinchStartDist = 0;
 }
-function handleMouseUp() { isEditorActive = false; }
-function getDist(t1, t2) { return Math.sqrt(Math.pow(t1.clientX - t2.clientX, 2) + Math.pow(t1.clientY - t2.clientY, 2)); }
+
+function handleMouseDown(e) {
+    isEditorActive = true;
+    panStart = {
+        x: e.clientX,
+        y: e.clientY
+    };
+    startTranslate = {
+        x: editorTranslateX,
+        y: editorTranslateY
+    };
+}
+
+function handleMouseMove(e) {
+    if (!isEditorActive) return;
+    e.preventDefault();
+    const dx = e.clientX - panStart.x;
+    const dy = e.clientY - panStart.y;
+    editorTranslateX = startTranslate.x + dx;
+    editorTranslateY = startTranslate.y + dy;
+    drawEditor();
+}
+
+function handleMouseUp() {
+    isEditorActive = false;
+}
+
+function getDist(t1, t2) {
+    return Math.sqrt(Math.pow(t1.clientX - t2.clientX, 2) + Math.pow(t1.clientY - t2.clientY, 2));
+}
 
 window.applyEditorChanges = function() {
     const finalCvs = document.createElement('canvas');
     finalCvs.width = editorTargetW;
     finalCvs.height = editorTargetH;
     const ctx = finalCvs.getContext('2d');
-    
+
     // Map visual crop box coords to image coords
     const relX = cropBox.x - editorTranslateX;
     const relY = cropBox.y - editorTranslateY;
-    
+
     const sourceX = relX / editorScale;
     const sourceY = relY / editorScale;
     const sourceW = cropBox.w / editorScale;
     const sourceH = cropBox.h / editorScale;
-    
+
     ctx.imageSmoothingEnabled = true;
     ctx.imageSmoothingQuality = 'high';
     ctx.drawImage(editorImage, sourceX, sourceY, sourceW, sourceH, 0, 0, editorTargetW, editorTargetH);
-    
+
     sourceImageB64 = finalCvs.toDataURL('image/png');
-    resetInpaintCanvas(); 
-    
+    resetInpaintCanvas();
+
     document.getElementById('img-input-container').style.display = 'none';
     document.getElementById('canvasWrapper').classList.remove('hidden');
     document.getElementById('editorModal').classList.add('hidden');
-    
+
     const mode = currentMode;
     document.getElementById(`${mode}_width`).value = editorTargetW;
     document.getElementById(`${mode}_height`).value = editorTargetH;
@@ -578,17 +749,32 @@ window.closeEditor = () => document.getElementById('editorModal').classList.add(
 // --- INPAINTING CANVAS LOGIC ---
 function initMainCanvas() {
     mainCanvas = document.getElementById('paintCanvas');
-    if(!mainCanvas) return;
+    if (!mainCanvas) return;
     mainCtx = mainCanvas.getContext('2d');
     maskCanvas = document.createElement('canvas');
     maskCtx = maskCanvas.getContext('2d');
-    
+
     mainCanvas.style.touchAction = 'none';
-    
-    mainCanvas.addEventListener('touchstart', (e) => { e.preventDefault(); startPaint(e.touches[0]); }, {passive: false});
-    mainCanvas.addEventListener('touchmove', (e) => { e.preventDefault(); painting(e.touches[0]); }, {passive: false});
-    mainCanvas.addEventListener('touchend', (e) => { e.preventDefault(); stopPaint(); }, {passive: false});
-    
+
+    mainCanvas.addEventListener('touchstart', (e) => {
+        e.preventDefault();
+        startPaint(e.touches[0]);
+    }, {
+        passive: false
+    });
+    mainCanvas.addEventListener('touchmove', (e) => {
+        e.preventDefault();
+        painting(e.touches[0]);
+    }, {
+        passive: false
+    });
+    mainCanvas.addEventListener('touchend', (e) => {
+        e.preventDefault();
+        stopPaint();
+    }, {
+        passive: false
+    });
+
     mainCanvas.addEventListener('mousedown', startPaint);
     mainCanvas.addEventListener('mousemove', painting);
     mainCanvas.addEventListener('mouseup', stopPaint);
@@ -597,24 +783,24 @@ function initMainCanvas() {
 
 // FIX: Set image as background instead of drawing it (allows real erasing)
 function resetInpaintCanvas() {
-    if(!sourceImageB64) return;
-    
+    if (!sourceImageB64) return;
+
     // 1. Set CSS Background
     mainCanvas.width = editorTargetW;
     mainCanvas.height = editorTargetH;
     mainCanvas.style.backgroundImage = `url(${sourceImageB64})`;
     mainCanvas.style.backgroundSize = "100% 100%";
-    
+
     // 2. Clear Visual Canvas (It should only hold strokes)
     mainCtx.clearRect(0, 0, mainCanvas.width, mainCanvas.height);
-    
+
     // 3. Reset Mask Canvas (Solid Black)
     maskCanvas.width = editorTargetW;
     maskCanvas.height = editorTargetH;
     maskCtx.fillStyle = "black";
     maskCtx.fillRect(0, 0, maskCanvas.width, maskCanvas.height);
-    
-    historyStates = []; 
+
+    historyStates = [];
     saveHistory();
 }
 
@@ -623,57 +809,66 @@ function startPaint(e) {
     const rect = mainCanvas.getBoundingClientRect();
     const scaleX = mainCanvas.width / rect.width;
     const scaleY = mainCanvas.height / rect.height;
-    
+
     const clientX = e.clientX;
     const clientY = e.clientY;
-    
+
     const x = (clientX - rect.left) * scaleX;
     const y = (clientY - rect.top) * scaleY;
-    
-    mainCtx.beginPath(); mainCtx.moveTo(x, y);
-    maskCtx.beginPath(); maskCtx.moveTo(x, y);
+
+    mainCtx.beginPath();
+    mainCtx.moveTo(x, y);
+    maskCtx.beginPath();
+    maskCtx.moveTo(x, y);
 }
 
 function painting(e) {
-    if(!isDrawing) return;
+    if (!isDrawing) return;
     const rect = mainCanvas.getBoundingClientRect();
     const scaleX = mainCanvas.width / rect.width;
     const scaleY = mainCanvas.height / rect.height;
-    
+
     const clientX = e.clientX;
     const clientY = e.clientY;
-    
+
     const x = (clientX - rect.left) * scaleX;
     const y = (clientY - rect.top) * scaleY;
-    
+
     const size = document.getElementById('brushSize').value;
-    
-    mainCtx.lineWidth = size; mainCtx.lineCap = 'round'; mainCtx.lineJoin = 'round';
-    maskCtx.lineWidth = size; maskCtx.lineCap = 'round'; maskCtx.lineJoin = 'round';
-    
+
+    mainCtx.lineWidth = size;
+    mainCtx.lineCap = 'round';
+    mainCtx.lineJoin = 'round';
+    maskCtx.lineWidth = size;
+    maskCtx.lineCap = 'round';
+    maskCtx.lineJoin = 'round';
+
     if (currentBrushMode === 'draw') {
         // Draw Orange on Visual, White on Mask
         mainCtx.globalCompositeOperation = 'source-over';
-        mainCtx.strokeStyle = 'rgba(255, 165, 0, 0.5)'; 
+        mainCtx.strokeStyle = 'rgba(255, 165, 0, 0.5)';
         maskCtx.globalCompositeOperation = 'source-over';
         maskCtx.strokeStyle = 'white';
     } else {
         // FIX: Erase mode should remove orange (destination-out) and paint black on mask
         mainCtx.globalCompositeOperation = 'destination-out';
         mainCtx.strokeStyle = 'rgba(0,0,0,1)'; // Color doesn't matter for dest-out
-        
+
         maskCtx.globalCompositeOperation = 'source-over'; // Paint over with black
         maskCtx.strokeStyle = 'black';
     }
-    
-    mainCtx.lineTo(x, y); mainCtx.stroke(); 
-    maskCtx.lineTo(x, y); maskCtx.stroke();
+
+    mainCtx.lineTo(x, y);
+    mainCtx.stroke();
+    maskCtx.lineTo(x, y);
+    maskCtx.stroke();
 }
 
 function stopPaint() {
-    if(isDrawing) {
+    if (isDrawing) {
         isDrawing = false;
-        mainCtx.closePath(); maskCtx.closePath();
+        mainCtx.closePath();
+        maskCtx.closePath();
         mainCtx.globalCompositeOperation = 'source-over';
         // FIX: Removed destructive logic that was wiping the canvas
         saveHistory();
@@ -681,19 +876,32 @@ function stopPaint() {
 }
 
 function saveHistory() {
-    if(historyStates.length > 10) historyStates.shift();
-    historyStates.push({ visual: mainCanvas.toDataURL(), mask: maskCanvas.toDataURL() });
+    if (historyStates.length > 10) historyStates.shift();
+    historyStates.push({
+        visual: mainCanvas.toDataURL(),
+        mask: maskCanvas.toDataURL()
+    });
 }
 
 window.undoLastStroke = function() {
     if (historyStates.length > 1) {
         historyStates.pop();
         const lastState = historyStates[historyStates.length - 1];
-        const imgV = new Image(); imgV.src = lastState.visual;
-        const imgM = new Image(); imgM.src = lastState.mask;
-        imgV.onload = () => { mainCtx.clearRect(0,0, mainCanvas.width, mainCanvas.height); mainCtx.drawImage(imgV, 0, 0); };
-        imgM.onload = () => { maskCtx.clearRect(0,0, maskCanvas.width, maskCanvas.height); maskCtx.drawImage(imgM, 0, 0); }
-    } else { resetInpaintCanvas(); }
+        const imgV = new Image();
+        imgV.src = lastState.visual;
+        const imgM = new Image();
+        imgM.src = lastState.mask;
+        imgV.onload = () => {
+            mainCtx.clearRect(0, 0, mainCanvas.width, mainCanvas.height);
+            mainCtx.drawImage(imgV, 0, 0);
+        };
+        imgM.onload = () => {
+            maskCtx.clearRect(0, 0, maskCanvas.width, maskCanvas.height);
+            maskCtx.drawImage(imgM, 0, 0);
+        }
+    } else {
+        resetInpaintCanvas();
+    }
 }
 
 window.clearMask = () => resetInpaintCanvas();
@@ -717,19 +925,31 @@ window.switchTab = function(view) {
     document.getElementById('view-' + view).classList.remove('hidden');
     const items = document.querySelectorAll('.dock-item');
     items.forEach(item => item.classList.remove('active'));
-    if(view === 'gen') { items[0].classList.add('active'); currentTask = 'txt'; }
-    if(view === 'inp') { items[1].classList.add('active'); currentTask = 'inp'; }
-    if(view === 'que') { items[2].classList.add('active'); renderQueueAll(); }
-    if(view === 'gal') { items[3].classList.add('active'); loadGallery(); }
-    if(view === 'ana') items[4].classList.add('active');
+    if (view === 'gen') {
+        items[0].classList.add('active');
+        currentTask = 'txt';
+    }
+    if (view === 'inp') {
+        items[1].classList.add('active');
+        currentTask = 'inp';
+    }
+    if (view === 'que') {
+        items[2].classList.add('active');
+        renderQueueAll();
+    }
+    if (view === 'gal') {
+        items[3].classList.add('active');
+        loadGallery();
+    }
+    if (view === 'ana') items[4].classList.add('active');
 }
 
 window.setMode = async function(mode) {
     // FIX 2: Universal VRAM Unload on Mode Switch (Restored behavior)
-    if (currentMode !== mode) { 
-        if(HOST) { 
-            await unloadModel(true); 
-        } 
+    if (currentMode !== mode) {
+        if (HOST) {
+            await unloadModel(true);
+        }
     }
 
     currentMode = mode;
@@ -738,7 +958,7 @@ window.setMode = async function(mode) {
     const btnFlux = document.getElementById('btn-flux');
     // --- NEO HOOK: QWEN BTN ---
     const btnQwen = document.getElementById('btn-qwen');
-    
+
     const xlRow = document.getElementById('row-xl-model');
     const fluxRow = document.getElementById('row-flux-model');
     // --- NEO HOOK: QWEN ROW ---
@@ -752,17 +972,17 @@ window.setMode = async function(mode) {
     // Reset all
     btnXL.classList.remove('active');
     btnFlux.classList.remove('active');
-    if(btnQwen) btnQwen.classList.remove('active');
+    if (btnQwen) btnQwen.classList.remove('active');
 
     xlRow.classList.add('hidden');
     fluxRow.classList.add('hidden');
-    if(qwenRow) qwenRow.classList.add('hidden');
+    if (qwenRow) qwenRow.classList.add('hidden');
 
     xlCont.classList.add('hidden');
     fluxCont.classList.add('hidden');
-    if(qwenCont) qwenCont.classList.add('hidden');
+    if (qwenCont) qwenCont.classList.add('hidden');
 
-    if(mode === 'flux') {
+    if (mode === 'flux') {
         root.setAttribute('data-mode', 'flux');
         btnFlux.classList.add('active');
         fluxRow.classList.remove('hidden');
@@ -772,9 +992,9 @@ window.setMode = async function(mode) {
     } else if (mode === 'qwen') {
         // --- NEO HOOK: QWEN LOGIC ---
         root.setAttribute('data-mode', 'qwen');
-        if(btnQwen) btnQwen.classList.add('active');
-        if(qwenRow) qwenRow.classList.remove('hidden');
-        if(qwenCont) qwenCont.classList.remove('hidden');
+        if (btnQwen) btnQwen.classList.add('active');
+        if (qwenRow) qwenRow.classList.remove('hidden');
+        if (qwenCont) qwenCont.classList.remove('hidden');
         document.getElementById('genBtn').innerText = "TURBO GENERATE";
         document.getElementById('appTitle').innerText = "BOJRO NEO";
     } else {
@@ -787,281 +1007,241 @@ window.setMode = async function(mode) {
     }
 }
 
-function loadHostIp() { const ip = localStorage.getItem('bojroHostIp'); if(ip) document.getElementById('hostIp').value = ip; }
+function loadHostIp() {
+    const ip = localStorage.getItem('bojroHostIp');
+    if (ip) document.getElementById('hostIp').value = ip;
+}
 
 window.connect = async function(silent = false) {
     HOST = document.getElementById('hostIp').value.replace(/\/$/, "");
     const dot = document.getElementById('statusDot');
-    if(!silent) dot.style.background = "yellow";
-    
+    if (!silent) dot.style.background = "yellow";
+
     try {
         if (LocalNotifications && !silent) {
             const perm = await LocalNotifications.requestPermissions();
             if (perm.display === 'granted') await createNotificationChannel();
         }
 
-        const res = await fetch(`${HOST}/sdapi/v1/sd-models`, { headers: getHeaders() });
-        if(!res.ok) throw new Error("Status " + res.status);
-        
-        dot.style.background = "#00e676"; dot.classList.add('on');
+        const res = await fetch(`${HOST}/sdapi/v1/sd-models`, {
+            headers: getHeaders()
+        });
+        if (!res.ok) throw new Error("Status " + res.status);
+
+        dot.style.background = "#00e676";
+        dot.classList.add('on');
         localStorage.setItem('bojroHostIp', HOST);
         document.getElementById('genBtn').disabled = false;
-        
-        await Promise.all([fetchModels(), fetchSamplers(), fetchLoras(), fetchVaes()]);
-        
-        if(!silent) if(Toast) Toast.show({text: 'Server Linked Successfully', duration: 'short', position: 'center'});
-    } catch(e) {
-        dot.style.background = "#f44336"; 
-        if(!silent) alert("Failed: " + e.message);
+
+        // MODIFIED: Fetch everything EXCEPT LoRAs (Lazy load them)
+        // fetchLoras();  <-- Commented out to prevent startup freeze
+        await Promise.all([fetchModels(), fetchSamplers(), fetchVaes()]);
+
+        if (!silent)
+            if (Toast) Toast.show({
+                text: 'Server Linked Successfully',
+                duration: 'short',
+                position: 'center'
+            });
+    } catch (e) {
+        dot.style.background = "#f44336";
+        if (!silent) alert("Failed: " + e.message);
     }
 }
 
 async function fetchModels() {
     try {
-        const res = await fetch(`${HOST}/sdapi/v1/sd-models`, { headers: getHeaders() });
+        const res = await fetch(`${HOST}/sdapi/v1/sd-models`, {
+            headers: getHeaders()
+        });
         const data = await res.json();
-        const selXL = document.getElementById('xl_modelSelect'); selXL.innerHTML = "";
-        const selFlux = document.getElementById('flux_modelSelect'); selFlux.innerHTML = "";
-        const selInp = document.getElementById('inp_modelSelect'); selInp.innerHTML = "";
+        const selXL = document.getElementById('xl_modelSelect');
+        selXL.innerHTML = "";
+        const selFlux = document.getElementById('flux_modelSelect');
+        selFlux.innerHTML = "";
+        const selInp = document.getElementById('inp_modelSelect');
+        selInp.innerHTML = "";
         data.forEach(m => {
             selXL.appendChild(new Option(m.model_name, m.title));
             selFlux.appendChild(new Option(m.model_name, m.title));
             selInp.appendChild(new Option(m.model_name, m.title));
         });
-        ['xl', 'flux', 'inp'].forEach(mode => { const saved = localStorage.getItem('bojroModel_'+mode); if(saved) document.getElementById(mode+'_modelSelect').value = saved; });
-        
-        // --- NEO HOOK: POPULATE QWEN MODELS ---
-        if(window.Neo) window.Neo.populateModels(data);
+        ['xl', 'flux', 'inp'].forEach(mode => {
+            const saved = localStorage.getItem('bojroModel_' + mode);
+            if (saved) document.getElementById(mode + '_modelSelect').value = saved;
+        });
 
-    } catch(e){}
+        // --- NEO HOOK: POPULATE QWEN MODELS ---
+        if (window.Neo && window.Neo.populateModels) window.Neo.populateModels(data);
+
+    } catch (e) {}
 }
 
 async function fetchSamplers() {
     try {
-        const res = await fetch(`${HOST}/sdapi/v1/samplers`, { headers: getHeaders() });
+        const res = await fetch(`${HOST}/sdapi/v1/samplers`, {
+            headers: getHeaders()
+        });
         const data = await res.json();
-        const selXL = document.getElementById('xl_sampler'); selXL.innerHTML = "";
-        const selFlux = document.getElementById('flux_sampler'); selFlux.innerHTML = "";
-        const selInp = document.getElementById('inp_sampler'); selInp.innerHTML = "";
+        const selXL = document.getElementById('xl_sampler');
+        selXL.innerHTML = "";
+        const selFlux = document.getElementById('flux_sampler');
+        selFlux.innerHTML = "";
+        const selInp = document.getElementById('inp_sampler');
+        selInp.innerHTML = "";
         data.forEach(s => {
             selXL.appendChild(new Option(s.name, s.name));
             selInp.appendChild(new Option(s.name, s.name));
-            const opt = new Option(s.name, s.name); if(s.name === "Euler") opt.selected = true; selFlux.appendChild(opt);
+            const opt = new Option(s.name, s.name);
+            if (s.name === "Euler") opt.selected = true;
+            selFlux.appendChild(opt);
         });
 
         // --- NEO HOOK: POPULATE QWEN SAMPLERS ---
-        if(window.Neo) window.Neo.populateSamplers(data);
+        if (window.Neo && window.Neo.populateSamplers) window.Neo.populateSamplers(data);
 
-    } catch(e){}
+    } catch (e) {}
 }
 
-async function fetchLoras() { 
-    try { 
-        const res = await fetch(`${HOST}/sdapi/v1/loras`, { headers: getHeaders() }); 
-        allLoras = await res.json(); 
-        const saved = localStorage.getItem('bojroLoraConfigs'); 
-        if(saved) loraConfigs = JSON.parse(saved); 
-    } catch(e){} 
-}
-
-async function loadSidecarConfig(loraName, loraPath) { 
-    if (loraConfigs[loraName]) return loraConfigs[loraName]; 
-    if (!loraPath) return { weight: 1.0, trigger: "" }; 
-    try { 
-        const basePath = loraPath.substring(0, loraPath.lastIndexOf('.')); 
-        const jsonUrl = `${HOST}/file=${basePath}.json`; 
-        const res = await fetch(jsonUrl); 
-        if (res.ok) { 
-            const data = await res.json(); 
-            const newConfig = { weight: data["preferred weight"] || data["weight"] || 1.0, trigger: data["activation text"] || data["trigger words"] || data["trigger"] || "" }; 
-            loraConfigs[loraName] = newConfig; 
-            return newConfig; 
-        } 
-    } catch (e) {} 
-    return { weight: 1.0, trigger: "" }; 
-}
-
-async function fetchVaes() { 
-    const slots = [document.getElementById('flux_vae'), document.getElementById('flux_clip'), document.getElementById('flux_t5')]; 
-    slots.forEach(s => s.innerHTML = "<option value='Automatic'>Automatic</option>"); 
-    let list = []; 
-    try { 
-        const res = await fetch(`${HOST}/sdapi/v1/sd-modules`, { headers: getHeaders() }); 
-        const data = await res.json(); 
-        if(data && data.length) list = data.map(m => m.model_name); 
-    } catch(e) {} 
-    if(list.length > 0) { 
-        slots.forEach(sel => { 
-            list.forEach(name => { 
-                if (name !== "Automatic" && !Array.from(sel.options).some(o => o.value === name)) sel.appendChild(new Option(name, name)); 
-            }); 
-        }); 
-        // --- NEO HOOK: POPULATE DUAL (VAE/TE) for QWEN ---
-        if(window.Neo) window.Neo.populateDual(list);
-    } 
-    ['flux_vae', 'flux_clip', 'flux_t5'].forEach(id => { 
-        const saved = localStorage.getItem('bojro_'+id); 
-        if(saved && Array.from(document.getElementById(id).options).some(o => o.value === saved)) document.getElementById(id).value = saved; 
-    }); 
-    const savedBits = localStorage.getItem('bojro_flux_bits'); 
-    if(savedBits) document.getElementById('flux_bits').value = savedBits; 
+async function fetchVaes() {
+    const slots = [document.getElementById('flux_vae'), document.getElementById('flux_clip'), document.getElementById('flux_t5')];
+    slots.forEach(s => s.innerHTML = "<option value='Automatic'>Automatic</option>");
+    let list = [];
+    try {
+        const res = await fetch(`${HOST}/sdapi/v1/sd-modules`, {
+            headers: getHeaders()
+        });
+        const data = await res.json();
+        if (data && data.length) {
+            list = data.map(m => m.model_name);
+            slots.forEach(sel => {
+                list.forEach(name => {
+                    if (name !== "Automatic" && !Array.from(sel.options).some(o => o.value === name)) sel.appendChild(new Option(name, name));
+                });
+            });
+            // --- NEO HOOK: POPULATE DUAL (VAE/TE) for QWEN ---
+            if (window.Neo && window.Neo.populateDual) window.Neo.populateDual(list);
+        }
+    } catch (e) {}
+    ['flux_vae', 'flux_clip', 'flux_t5'].forEach(id => {
+        const saved = localStorage.getItem('bojro_' + id);
+        if (saved && Array.from(document.getElementById(id).options).some(o => o.value === saved)) document.getElementById(id).value = saved;
+    });
+    const savedBits = localStorage.getItem('bojro_flux_bits');
+    if (savedBits) document.getElementById('flux_bits').value = savedBits;
 
     // --- NEO HOOK: RESTORE QWEN BITS ---
     const savedQwenBits = localStorage.getItem('bojro_qwen_bits');
-    if(savedQwenBits) document.getElementById('qwen_bits').value = savedQwenBits;
+    if (savedQwenBits && document.getElementById('qwen_bits')) document.getElementById('qwen_bits').value = savedQwenBits;
+}
+
+// Helper needed for the Smart Bridge (Neo/LoRA)
+async function loadSidecarConfig(loraName, loraPath) {
+    if (loraConfigs[loraName]) return loraConfigs[loraName];
+    if (!loraPath) return {
+        weight: 1.0,
+        trigger: ""
+    };
+    try {
+        const basePath = loraPath.substring(0, loraPath.lastIndexOf('.'));
+        const jsonUrl = `${HOST}/file=${basePath}.json`;
+        const res = await fetch(jsonUrl);
+        if (res.ok) {
+            const data = await res.json();
+            const newConfig = {
+                weight: data["preferred weight"] || data["weight"] || 1.0,
+                trigger: data["activation text"] || data["trigger words"] || data["trigger"] || ""
+            };
+            loraConfigs[loraName] = newConfig;
+            return newConfig;
+        }
+    } catch (e) {}
+    return {
+        weight: 1.0,
+        trigger: ""
+    };
 }
 
 window.saveSelection = function(key) {
-    if(key === 'xl') localStorage.setItem('bojroModel_xl', document.getElementById('xl_modelSelect').value);
-    else if(key === 'flux') localStorage.setItem('bojroModel_flux', document.getElementById('flux_modelSelect').value);
-    else if(key === 'inp') localStorage.setItem('bojroModel_inp', document.getElementById('inp_modelSelect').value);
-    else if(key === 'flux_bits') localStorage.setItem('bojro_flux_bits', document.getElementById('flux_bits').value);
+    if (key === 'xl') localStorage.setItem('bojroModel_xl', document.getElementById('xl_modelSelect').value);
+    else if (key === 'flux') localStorage.setItem('bojroModel_flux', document.getElementById('flux_modelSelect').value);
+    else if (key === 'inp') localStorage.setItem('bojroModel_inp', document.getElementById('inp_modelSelect').value);
+    else if (key === 'flux_bits') localStorage.setItem('bojro_flux_bits', document.getElementById('flux_bits').value);
     // --- NEO HOOK: SAVE QWEN ---
-    else if(key === 'qwen') localStorage.setItem('bojroModel_qwen', document.getElementById('qwen_modelSelect').value);
-    else if(key === 'qwen_bits') localStorage.setItem('bojro_qwen_bits', document.getElementById('qwen_bits').value);
+    else if (key === 'qwen') localStorage.setItem('bojroModel_qwen', document.getElementById('qwen_modelSelect').value);
+    else if (key === 'qwen_bits') localStorage.setItem('bojro_qwen_bits', document.getElementById('qwen_bits').value);
 }
 
 window.saveTrident = function() {
-    ['flux_vae', 'flux_clip', 'flux_t5'].forEach(id => localStorage.setItem('bojro_'+id, document.getElementById(id).value));
+    ['flux_vae', 'flux_clip', 'flux_t5'].forEach(id => localStorage.setItem('bojro_' + id, document.getElementById(id).value));
 }
 
 window.unloadModel = async function(silent = false) {
-    if(!silent && !confirm("Unload current model?")) return;
-    try { await fetch(`${HOST}/sdapi/v1/unload-checkpoint`, { method: 'POST', headers: getHeaders() }); if(!silent) alert("Unloaded"); } catch(e) {}
+    if (!silent && !confirm("Unload current model?")) return;
+    try {
+        await fetch(`${HOST}/sdapi/v1/unload-checkpoint`, {
+            method: 'POST',
+            headers: getHeaders()
+        });
+        if (!silent) alert("Unloaded");
+    } catch (e) {}
 }
 
 async function postOption(payload) {
-    const res = await fetch(`${HOST}/sdapi/v1/options`, { method: 'POST', headers: getHeaders(), body: JSON.stringify(payload) });
-    if(!res.ok) throw new Error("API Error " + res.status);
-}
-
-window.setRes = (mode, w, h) => { document.getElementById(`${mode}_width`).value = w; document.getElementById(`${mode}_height`).value = h; }
-window.flipRes = (mode) => { const w = document.getElementById(`${mode}_width`); const h = document.getElementById(`${mode}_height`); const t = w.value; w.value = h.value; h.value = t; }
-function normalize(str) { if (!str) return ""; const noHash = str.split(' [')[0].trim(); return noHash.replace(/\\/g, '/').split('/').pop().toLowerCase(); }
-
-window.openLoraModal = (mode) => {
-    activeLoraMode = mode;
-    document.getElementById('loraModal').classList.remove('hidden');
-    document.getElementById('loraSearch').value = "";
-    document.getElementById('loraSearch').focus();
-    window.filterLoras();
-}
-
-window.closeLoraModal = () => document.getElementById('loraModal').classList.add('hidden');
-window.debouncedRenderLora = () => { clearTimeout(loraDebounceTimer); loraDebounceTimer = setTimeout(() => { window.filterLoras(); }, 200); }
-
-window.filterLoras = () => {
-    const list = document.getElementById('loraVerticalList') || document.getElementById('loraGridContainer');
-    list.style.cssText = "overflow-y: auto; flex: 1; min-height: 0; padding-bottom: 20px;";
-    list.innerHTML = "";
-    const term = document.getElementById('loraSearch').value.toLowerCase();
-    
-    if(allLoras.length === 0) { list.innerHTML = "<div style='padding:20px;text-align:center;color:#777;'>No LoRAs found</div>"; return; }
-    
-    const filtered = allLoras.filter(l => l.name.toLowerCase().includes(term))
-                             .sort((a, b) => {
-                                 const aActive = isLoraActive(a.name);
-                                 const bActive = isLoraActive(b.name);
-                                 if (aActive === bActive) return a.name.localeCompare(b.name);
-                                 return bActive - aActive;
-                             });
-
-    filtered.forEach(lora => {
-        const isActive = isLoraActive(lora.name);
-        const row = document.createElement('div');
-        row.className = `lora-item-row ${isActive ? 'active' : ''}`;
-        let thumbUrl = "icon.png";
-        if (lora.path) {
-            const base = lora.path.substring(0, lora.path.lastIndexOf('.'));
-            thumbUrl = `${HOST}/file=${base}.png`;
-        }
-        row.innerHTML = `<img src="${thumbUrl}" class="lora-item-thumb" loading="lazy" onerror="this.src='icon.png';this.onerror=null;"><div class="lora-item-info"><div class="lora-item-name">${lora.name}</div><div class="lora-item-meta">${isActive ? 'ACTIVE' : 'READY'}</div></div><div class="lora-btn-action" title="Edit Config"><i data-lucide="settings-2" size="20"></i></div><div class="lora-btn-toggle"><i data-lucide="${isActive ? 'check' : 'plus'}" size="22"></i></div>`;
-        
-        const editBtn = row.querySelector('.lora-btn-action');
-        editBtn.onclick = (e) => { e.stopPropagation(); openLoraSettings(e, lora.name, lora.path.replace(/\\/g, '/')); };
-        
-        const toggleBtn = row.querySelector('.lora-btn-toggle');
-        toggleBtn.onclick = (e) => { e.stopPropagation(); toggleLora(lora.name, row, lora.path.replace(/\\/g, '/')); };
-        
-        row.onclick = () => { toggleLora(lora.name, row, lora.path.replace(/\\/g, '/')); };
-        list.appendChild(row);
+    const res = await fetch(`${HOST}/sdapi/v1/options`, {
+        method: 'POST',
+        headers: getHeaders(),
+        body: JSON.stringify(payload)
     });
-    
-    if(filtered.length === 0) list.innerHTML = "<div style='padding:20px;text-align:center;color:#666;'>No matches</div>";
-    lucide.createIcons();
+    if (!res.ok) throw new Error("API Error " + res.status);
 }
 
-function isLoraActive(loraName) {
-    let promptId;
-    if (activeLoraMode === 'xl') promptId = 'xl_prompt';
-    else if (activeLoraMode === 'flux') promptId = 'flux_prompt';
-    else if (activeLoraMode === 'qwen') promptId = 'qwen_prompt'; // --- NEO HOOK ---
-    
-    const text = document.getElementById(promptId).value;
-    return text.includes(`<lora:${loraName}:`);
+window.setRes = (mode, w, h) => {
+    document.getElementById(`${mode}_width`).value = w;
+    document.getElementById(`${mode}_height`).value = h;
+}
+window.flipRes = (mode) => {
+    const w = document.getElementById(`${mode}_width`);
+    const h = document.getElementById(`${mode}_height`);
+    const t = w.value;
+    w.value = h.value;
+    h.value = t;
 }
 
-window.toggleLora = async (loraName, rowEl, loraPath) => {
-    let promptId;
-    if (activeLoraMode === 'xl') promptId = 'xl_prompt';
-    else if (activeLoraMode === 'flux') promptId = 'flux_prompt';
-    else if (activeLoraMode === 'qwen') promptId = 'qwen_prompt'; // --- NEO HOOK ---
-
-    const p = document.getElementById(promptId);
-    const escapedName = loraName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const regex = new RegExp(`<lora:${escapedName}:[^>]+>`, 'g');
-    const isRemoving = !!p.value.match(regex);
-
-    if (isRemoving) {
-        p.value = p.value.replace(regex, '');
-        const knownConfig = loraConfigs[loraName];
-        if(knownConfig && knownConfig.trigger) {
-            const trigRegex = new RegExp(knownConfig.trigger.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g');
-            p.value = p.value.replace(trigRegex, '');
-        }
-        p.value = p.value.replace(/\s\s+/g, ' ').trim();
-        rowEl.classList.remove('active');
-        rowEl.querySelector('.lora-btn-toggle i').setAttribute('data-lucide', 'plus');
-        rowEl.querySelector('.lora-item-meta').innerText = 'READY';
-        if(Toast) Toast.show({text: 'Removed', duration: 'short'});
-    } else {
-        let config = loraConfigs[loraName];
-        if (!config) {
-            if(Toast) Toast.show({text: 'Fetching config...', duration: 'short'});
-            config = await loadSidecarConfig(loraName, loraPath);
-        }
-        let insertion = ` <lora:${loraName}:${config.weight}>`;
-        if (config.trigger) insertion += ` ${config.trigger}`;
-        p.value = p.value.trim() + insertion;
-        rowEl.classList.add('active');
-        rowEl.querySelector('.lora-btn-toggle i').setAttribute('data-lucide', 'check');
-        rowEl.querySelector('.lora-item-meta').innerText = 'ACTIVE';
-        if(Toast) Toast.show({text: 'Added', duration: 'short'});
-    }
-    lucide.createIcons();
+function normalize(str) {
+    if (!str) return "";
+    const noHash = str.split(' [')[0].trim();
+    return noHash.replace(/\\/g, '/').split('/').pop().toLowerCase();
 }
 
+// --- LORA CONFIG MODAL (Legacy but useful for tweaking) ---
 window.openLoraSettings = async (e, loraName, loraPath) => {
     e.stopPropagation();
     const modal = document.getElementById('loraConfigModal');
     modal.classList.remove('hidden');
     document.getElementById('cfgLoraTitle').innerText = "Loading...";
-    
+
     let cfg = loraConfigs[loraName];
     if (!cfg) cfg = await loadSidecarConfig(loraName, loraPath);
-    
+
     document.getElementById('cfgLoraTitle').innerText = loraName;
     document.getElementById('cfgWeight').value = cfg.weight;
     document.getElementById('cfgWeightDisplay').innerText = cfg.weight;
     document.getElementById('cfgTrigger').value = cfg.trigger;
-    
+
     document.getElementById('cfgSaveBtn').onclick = () => {
         const newWeight = document.getElementById('cfgWeight').value;
         const newTrigger = document.getElementById('cfgTrigger').value;
-        loraConfigs[loraName] = { weight: parseFloat(newWeight), trigger: newTrigger };
+        loraConfigs[loraName] = {
+            weight: parseFloat(newWeight),
+            trigger: newTrigger
+        };
         localStorage.setItem('bojroLoraConfigs', JSON.stringify(loraConfigs));
         modal.classList.add('hidden');
-        if(Toast) Toast.show({text: 'Saved', duration: 'short'});
+        if (Toast) Toast.show({
+            text: 'Saved',
+            duration: 'short'
+        });
     };
 }
 
@@ -1076,31 +1256,34 @@ window.openLlmModal = (mode) => {
     inputEl.value = llmState[mode].input;
     outputEl.value = llmState[mode].output;
     let savedSys = llmSettings.system_xl;
-    if(activeLlmMode === 'flux') savedSys = llmSettings.system_flux;
-    else if(activeLlmMode === 'qwen') savedSys = llmSettings.system_qwen;
+    if (activeLlmMode === 'flux') savedSys = llmSettings.system_flux;
+    else if (activeLlmMode === 'qwen') savedSys = llmSettings.system_qwen;
     document.getElementById('llmSystemPrompt').value = savedSys || "";
     updateLlmButtonState();
-    if(!inputEl.value) inputEl.focus();
+    if (!inputEl.value) inputEl.focus();
 }
 
 window.closeLlmModal = () => document.getElementById('llmModal').classList.add('hidden');
 window.toggleLlmSettings = () => document.getElementById('llmSettingsBox').classList.toggle('hidden');
-window.updateLlmState = function() { llmState[activeLlmMode].input = document.getElementById('llmInput').value; }
+window.updateLlmState = function() {
+    llmState[activeLlmMode].input = document.getElementById('llmInput').value;
+}
 
 function updateLlmButtonState() {
     const hasOutput = llmState[activeLlmMode].output.trim().length > 0;
-    const btn = document.getElementById('llmGenerateBtn');
-    btn.innerText = hasOutput ? "ITERATE" : "GENERATE PROMPT";
+    document.getElementById('llmGenerateBtn').innerText = hasOutput ? "ITERATE" : "GENERATE PROMPT";
 }
 
 function loadLlmSettings() {
     const s = localStorage.getItem('bojroLlmConfig');
-    if(s) {
+    if (s) {
         const loaded = JSON.parse(s);
-        llmSettings = {...llmSettings, ...loaded};
+        llmSettings = { ...llmSettings,
+            ...loaded
+        };
         document.getElementById('llmApiBase').value = llmSettings.baseUrl || '';
         document.getElementById('llmApiKey').value = llmSettings.key || '';
-        if(llmSettings.model) {
+        if (llmSettings.model) {
             const sel = document.getElementById('llmModelSelect');
             sel.innerHTML = `<option value="${llmSettings.model}">${llmSettings.model}</option>`;
             sel.value = llmSettings.model;
@@ -1113,38 +1296,59 @@ window.saveLlmGlobalSettings = function() {
     llmSettings.key = document.getElementById('llmApiKey').value;
     llmSettings.model = document.getElementById('llmModelSelect').value;
     const sysVal = document.getElementById('llmSystemPrompt').value;
-    if(activeLlmMode === 'xl') llmSettings.system_xl = sysVal; 
-    else if(activeLlmMode === 'flux') llmSettings.system_flux = sysVal;
-    else if(activeLlmMode === 'qwen') llmSettings.system_qwen = sysVal;
+    if (activeLlmMode === 'xl') llmSettings.system_xl = sysVal;
+    else if (activeLlmMode === 'flux') llmSettings.system_flux = sysVal;
+    else if (activeLlmMode === 'qwen') llmSettings.system_qwen = sysVal;
     localStorage.setItem('bojroLlmConfig', JSON.stringify(llmSettings));
-    if(Toast) Toast.show({ text: 'Settings & Model Saved', duration: 'short' });
+    if (Toast) Toast.show({
+        text: 'Settings & Model Saved',
+        duration: 'short'
+    });
 }
 
 window.connectToLlm = async function() {
     if (!CapacitorHttp) return alert("Native HTTP Plugin not loaded! Rebuild App.");
     const baseUrl = document.getElementById('llmApiBase').value.replace(/\/$/, "");
     const key = document.getElementById('llmApiKey').value;
-    if(!baseUrl) return alert("Enter Server URL first");
-    
+    if (!baseUrl) return alert("Enter Server URL first");
+
     const btn = event.target;
     const originalText = btn.innerText;
-    btn.innerText = "..."; btn.disabled = true;
+    btn.innerText = "...";
+    btn.disabled = true;
 
     try {
-        const headers = { 'Content-Type': 'application/json' };
-        if(key) headers['Authorization'] = `Bearer ${key}`;
-        const response = await CapacitorHttp.get({ url: `${baseUrl}/v1/models`, headers: headers });
+        const headers = {
+            'Content-Type': 'application/json'
+        };
+        if (key) headers['Authorization'] = `Bearer ${key}`;
+        const response = await CapacitorHttp.get({
+            url: `${baseUrl}/v1/models`,
+            headers: headers
+        });
         const data = response.data;
-        if(response.status >= 400) throw new Error(`HTTP ${response.status}`);
+        if (response.status >= 400) throw new Error(`HTTP ${response.status}`);
         const select = document.getElementById('llmModelSelect');
         select.innerHTML = "";
-        if(data.data && Array.isArray(data.data)) {
-            data.data.forEach(m => { select.appendChild(new Option(m.id, m.id)); });
-            if(Toast) Toast.show({ text: `Found ${data.data.length} models`, duration: 'short' });
-        } else { throw new Error("Invalid model format"); }
+        if (data.data && Array.isArray(data.data)) {
+            data.data.forEach(m => {
+                select.appendChild(new Option(m.id, m.id));
+            });
+            if (Toast) Toast.show({
+                text: `Found ${data.data.length} models`,
+                duration: 'short'
+            });
+        } else {
+            throw new Error("Invalid model format");
+        }
         document.getElementById('llmApiBase').value = baseUrl;
         saveLlmGlobalSettings();
-    } catch(e) { alert("Link Error: " + (e.message || JSON.stringify(e))); } finally { btn.innerText = originalText; btn.disabled = false; }
+    } catch (e) {
+        alert("Link Error: " + (e.message || JSON.stringify(e)));
+    } finally {
+        btn.innerText = originalText;
+        btn.disabled = false;
+    }
 }
 
 window.generateLlmPrompt = async function() {
@@ -1153,35 +1357,64 @@ window.generateLlmPrompt = async function() {
     const inputVal = document.getElementById('llmInput').value;
     const baseUrl = document.getElementById('llmApiBase').value.replace(/\/$/, "");
     const model = document.getElementById('llmModelSelect').value;
-    if(!inputVal) return alert("Please enter an idea!");
-    if(!baseUrl) return alert("Please connect to server first!");
-    
-    btn.disabled = true; btn.innerText = "GENERATING...";
+    if (!inputVal) return alert("Please enter an idea!");
+    if (!baseUrl) return alert("Please connect to server first!");
+
+    btn.disabled = true;
+    btn.innerText = "GENERATING...";
     const sysPrompt = document.getElementById('llmSystemPrompt').value;
     // --- NEO HOOK: QWEN PROMPT CONTEXT ---
     const contextMode = activeLlmMode === 'qwen' ? 'Qwen/Turbo' : (activeLlmMode === 'xl' ? 'Sdxl' : 'Flux');
     const promptTemplate = `1.Prompt(natural language): ${inputVal} Model: ${contextMode}`;
-    
+
     try {
-        const payload = { model: model || "default", messages: [{ role: "system", content: sysPrompt }, { role: "user", content: promptTemplate }], stream: false };
-        const headers = { 'Content-Type': 'application/json' };
-        if(llmSettings.key) headers['Authorization'] = `Bearer ${llmSettings.key}`;
-        const response = await CapacitorHttp.post({ url: `${baseUrl}/v1/chat/completions`, headers: headers, data: payload });
-        if(response.status >= 400) throw new Error(`HTTP ${response.status}`);
+        const payload = {
+            model: model || "default",
+            messages: [{
+                role: "system",
+                content: sysPrompt
+            }, {
+                role: "user",
+                content: promptTemplate
+            }],
+            stream: false
+        };
+        const headers = {
+            'Content-Type': 'application/json'
+        };
+        if (llmSettings.key) headers['Authorization'] = `Bearer ${llmSettings.key}`;
+        const response = await CapacitorHttp.post({
+            url: `${baseUrl}/v1/chat/completions`,
+            headers: headers,
+            data: payload
+        });
+        if (response.status >= 400) throw new Error(`HTTP ${response.status}`);
         const data = response.data;
         let result = "";
-        if(data.choices && data.choices[0] && data.choices[0].message) { result = data.choices[0].message.content; } else if (data.response) { result = data.response; }
+        if (data.choices && data.choices[0] && data.choices[0].message) {
+            result = data.choices[0].message.content;
+        } else if (data.response) {
+            result = data.response;
+        }
         document.getElementById('llmOutput').value = result;
         llmState[activeLlmMode].output = result;
         updateLlmButtonState();
-        if(Toast) Toast.show({ text: 'Prompt Generated!', duration: 'short' });
-    } catch(e) { alert("Generation failed: " + (e.message || JSON.stringify(e))); } finally { btn.disabled = false; updateLlmButtonState(); }
+        if (Toast) Toast.show({
+            text: 'Prompt Generated!',
+            duration: 'short'
+        });
+    } catch (e) {
+        alert("Generation failed: " + (e.message || JSON.stringify(e)));
+    } finally {
+        btn.disabled = false;
+        updateLlmButtonState();
+    }
 }
 
 window.useLlmPrompt = function() {
     const result = document.getElementById('llmOutput').value;
-    if(!result) return alert("Generate a prompt first!");
-    
+    if (!result) return alert("Generate a prompt first!");
+
     // --- NEO HOOK: TARGET QWEN PROMPT ---
     let targetId;
     if (activeLlmMode === 'xl') targetId = 'xl_prompt';
@@ -1190,7 +1423,10 @@ window.useLlmPrompt = function() {
 
     document.getElementById(targetId).value = result;
     closeLlmModal();
-    if(Toast) Toast.show({ text: 'Applied to main prompt!', duration: 'short' });
+    if (Toast) Toast.show({
+        text: 'Applied to main prompt!',
+        duration: 'short'
+    });
 }
 
 // -----------------------------------------------------------
@@ -1199,18 +1435,18 @@ window.useLlmPrompt = function() {
 
 function buildJobFromUI() {
     // FIX 1: Prioritize Inpaint Task Check BEFORE Qwen Mode Check
-    
+
     let payload = {};
     let overrides = {};
     overrides["forge_inference_memory"] = getVramMapping();
     overrides["forge_unet_storage_dtype"] = "Automatic (fp16 LoRA)";
-    
+
     // If Inpainting, read from new controls
     if (currentTask === 'inp') {
         const model = document.getElementById('inp_modelSelect').value;
         const prompt = document.getElementById('inp_prompt').value;
         if (!model || model.includes('Loading')) return alert("Select Model");
-        
+
         payload = {
             "prompt": prompt,
             "negative_prompt": document.getElementById('inp_neg').value,
@@ -1221,121 +1457,151 @@ function buildJobFromUI() {
             "height": editorTargetH,
             "sampler_name": document.getElementById('inp_sampler').value,
             "scheduler": document.getElementById('inp_scheduler').value,
-            "batch_size": 1, 
+            "batch_size": 1,
             "n_iter": 1,
             "save_images": true,
             "mask_blur": parseInt(document.getElementById('inp_mask_blur').value) || 4 //
         };
 
-        if (!sourceImageB64) { alert("Image missing!"); return null; }
-        
+        if (!sourceImageB64) {
+            alert("Image missing!");
+            return null;
+        }
+
         // init_images must be a list
         payload.init_images = [sourceImageB64.split(',')[1]];
         payload.denoising_strength = parseFloat(document.getElementById('denoisingStrength').value);
-        payload.resize_mode = 0; 
+        payload.resize_mode = 0;
 
         if (maskCanvas) {
-             const cleanMask = maskCanvas.toDataURL().split(',')[1];
-             payload.mask = cleanMask;
-             payload.inpainting_mask_invert = 0;
-             
-             // explicitly set inpainting_fill to 1 (Original) as default logic
-             payload.inpainting_fill = 1; 
+            const cleanMask = maskCanvas.toDataURL().split(',')[1];
+            payload.mask = cleanMask;
+            payload.inpainting_mask_invert = 0;
 
-             if (currentInpaintMode === 'mask') {
-                 // Masked Only Mode
-                 payload.inpaint_full_res = true; 
-                 payload.inpaint_full_res_padding = 32;
-             } else {
-                 // Whole Picture Mode
-                 payload.inpaint_full_res = false; 
-             }
+            // explicitly set inpainting_fill to 1 (Original) as default logic
+            payload.inpainting_fill = 1;
+
+            if (currentInpaintMode === 'mask') {
+                // Masked Only Mode
+                payload.inpaint_full_res = true;
+                payload.inpaint_full_res_padding = 32;
+            } else {
+                // Whole Picture Mode
+                payload.inpaint_full_res = false;
+            }
         }
-        
+
         // Soft Inpainting Logic 
         const useSoftInpaint = document.getElementById('inp_soft_inpaint').checked;
         if (useSoftInpaint) {
-             payload.alwayson_scripts = {
-                 "soft inpainting": {
-                     "args": [
-                         true,  // Enabled
-                         1.0,   // Schedule Bias
-                         0.5,   // Preservation Strength
-                         4.0,   // Transition Contrast Boost
-                         0.0,   // Mask Influence
-                         0.5,   // Difference Threshold
-                         2.0    // Difference Contrast
-                     ]
-                 }
-             };
-             // Recommendation: Increase mask blur slightly for soft inpainting
-             if(payload.mask_blur < 8) payload.mask_blur = 8;
+            payload.alwayson_scripts = {
+                "soft inpainting": {
+                    "args": [
+                        true, // Enabled
+                        1.0, // Schedule Bias
+                        0.5, // Preservation Strength
+                        4.0, // Transition Contrast Boost
+                        0.0, // Mask Influence
+                        0.5, // Difference Threshold
+                        2.0 // Difference Contrast
+                    ]
+                }
+            };
+            // Recommendation: Increase mask blur slightly for soft inpainting
+            if (payload.mask_blur < 8) payload.mask_blur = 8;
         }
 
         // Use Model Override logic for generic Inpaint
         // AND CRITICALLY: Unload any Flux/SDXL modules that might be lingering
         overrides["sd_model_checkpoint"] = model;
         overrides["forge_additional_modules"] = []; // FORCE CLEAR
-        overrides["sd_vae"] = "Automatic";          // RESET VAE
-        
+        overrides["sd_vae"] = "Automatic"; // RESET VAE
+
         payload.override_settings = overrides;
 
-        return { mode: 'inp', modelTitle: model, payload: payload, desc: `Inpaint: ${prompt.substring(0,20)}...` };
+        return {
+            mode: 'inp',
+            modelTitle: model,
+            payload: payload,
+            desc: `Inpaint: ${prompt.substring(0,20)}...`
+        };
     }
 
     // --- NEO HOOK: DELEGATE TO NEO IF QWEN MODE ---
     // Moved below currentTask check to prevent hijacking
-    if (currentMode === 'qwen' && window.Neo) {
+    if (currentMode === 'qwen' && window.Neo && window.Neo.buildJob) {
         return window.Neo.buildJob();
     }
 
     // Existing XL / Flux Logic
-    const mode = currentMode; 
+    const mode = currentMode;
     const targetModelTitle = mode === 'xl' ? document.getElementById('xl_modelSelect').value : document.getElementById('flux_modelSelect').value;
-    if(!targetModelTitle || targetModelTitle.includes("Link first")) return null;
-    
-    if(mode === 'xl') {
+    if (!targetModelTitle || targetModelTitle.includes("Link first")) return null;
+
+    if (mode === 'xl') {
         overrides["forge_additional_modules"] = [];
         overrides["sd_vae"] = "Automatic";
         payload = {
-            "prompt": document.getElementById('xl_prompt').value, "negative_prompt": document.getElementById('xl_neg').value,
-            "steps": parseInt(document.getElementById('xl_steps').value), "cfg_scale": parseFloat(document.getElementById('xl_cfg').value),
-            "width": parseInt(document.getElementById('xl_width').value), "height": parseInt(document.getElementById('xl_height').value),
-            "batch_size": parseInt(document.getElementById('xl_batch_size').value), "n_iter": parseInt(document.getElementById('xl_batch_count').value),
-            "sampler_name": document.getElementById('xl_sampler').value, "scheduler": document.getElementById('xl_scheduler').value,
-            "seed": parseInt(document.getElementById('xl_seed').value), "save_images": true, "override_settings": overrides
+            "prompt": document.getElementById('xl_prompt').value,
+            "negative_prompt": document.getElementById('xl_neg').value,
+            "steps": parseInt(document.getElementById('xl_steps').value),
+            "cfg_scale": parseFloat(document.getElementById('xl_cfg').value),
+            "width": parseInt(document.getElementById('xl_width').value),
+            "height": parseInt(document.getElementById('xl_height').value),
+            "batch_size": parseInt(document.getElementById('xl_batch_size').value),
+            "n_iter": parseInt(document.getElementById('xl_batch_count').value),
+            "sampler_name": document.getElementById('xl_sampler').value,
+            "scheduler": document.getElementById('xl_scheduler').value,
+            "seed": parseInt(document.getElementById('xl_seed').value),
+            "save_images": true,
+            "override_settings": overrides
         };
     } else {
         const modulesList = [document.getElementById('flux_vae').value, document.getElementById('flux_clip').value, document.getElementById('flux_t5').value].filter(v => v && v !== "Automatic");
         if (modulesList.length > 0) overrides["forge_additional_modules"] = modulesList;
+        
         const bits = document.getElementById('flux_bits').value;
-        if(bits) overrides["forge_unet_storage_dtype"] = bits;
+        if (bits) overrides["forge_unet_storage_dtype"] = bits;
+        
         const distCfg = parseFloat(document.getElementById('flux_distilled').value);
         payload = {
-            "prompt": document.getElementById('flux_prompt').value, "negative_prompt": "",
-            "steps": parseInt(document.getElementById('flux_steps').value), "cfg_scale": parseFloat(document.getElementById('flux_cfg').value),
-            "distilled_cfg_scale": isNaN(distCfg) ? 3.5 : distCfg, 
-            "width": parseInt(document.getElementById('flux_width').value), "height": parseInt(document.getElementById('flux_height').value),
-            "batch_size": parseInt(document.getElementById('flux_batch_size').value), "n_iter": parseInt(document.getElementById('flux_batch_count').value),
-            "sampler_name": document.getElementById('flux_sampler').value, "scheduler": document.getElementById('flux_scheduler').value,
-            "seed": parseInt(document.getElementById('flux_seed').value), "save_images": true, "override_settings": overrides 
+            "prompt": document.getElementById('flux_prompt').value,
+            "negative_prompt": "",
+            "steps": parseInt(document.getElementById('flux_steps').value),
+            "cfg_scale": parseFloat(document.getElementById('flux_cfg').value),
+            "distilled_cfg_scale": isNaN(distCfg) ? 3.5 : distCfg,
+            "width": parseInt(document.getElementById('flux_width').value),
+            "height": parseInt(document.getElementById('flux_height').value),
+            "batch_size": parseInt(document.getElementById('flux_batch_size').value),
+            "n_iter": parseInt(document.getElementById('flux_batch_count').value),
+            "sampler_name": document.getElementById('flux_sampler').value,
+            "scheduler": document.getElementById('flux_scheduler').value,
+            "seed": parseInt(document.getElementById('flux_seed').value),
+            "save_images": true,
+            "override_settings": overrides
         };
     }
-    return { mode: mode, modelTitle: targetModelTitle, payload: payload, desc: `${payload.prompt.substring(0, 30)}...` };
+    return {
+        mode: mode,
+        modelTitle: targetModelTitle,
+        payload: payload,
+        desc: `${payload.prompt.substring(0, 30)}...`
+    };
 }
 
 window.addToQueue = function() {
     const job = buildJobFromUI();
-    if(!job) return alert("Please select a model first.");
+    if (!job) return alert("Please select a model first.");
     job.id = Date.now().toString();
     job.timestamp = new Date().toLocaleString();
-    
-    queueState.ongoing.push(job); 
+
+    queueState.ongoing.push(job);
     saveQueueState();
     renderQueueAll();
-    
+
     const badge = document.getElementById('queueBadge');
-    badge.style.transform = "scale(1.5)"; setTimeout(() => badge.style.transform = "scale(1)", 200);
+    badge.style.transform = "scale(1.5)";
+    setTimeout(() => badge.style.transform = "scale(1)", 200);
 }
 
 function renderQueueAll() {
@@ -1348,12 +1614,15 @@ function renderQueueAll() {
 function renderList(type, listData) {
     const container = document.getElementById(`list-${type}`);
     container.innerHTML = "";
-    if(listData.length === 0) { container.innerHTML = `<div style="text-align:center;color:var(--text-muted);font-size:11px;padding:10px;">Empty</div>`; return; }
+    if (listData.length === 0) {
+        container.innerHTML = `<div style="text-align:center;color:var(--text-muted);font-size:11px;padding:10px;">Empty</div>`;
+        return;
+    }
 
     listData.forEach((job, index) => {
         const item = document.createElement('div');
         item.className = 'q-card';
-        if(type !== 'completed') {
+        if (type !== 'completed') {
             item.draggable = true;
             item.ondragstart = (e) => dragStart(e, type, index);
         }
@@ -1372,7 +1641,7 @@ window.removeJob = function(type, index) {
 }
 
 window.clearQueueSection = function(type) {
-    if(confirm(`Clear all ${type.toUpperCase()} items?`)) {
+    if (confirm(`Clear all ${type.toUpperCase()} items?`)) {
         queueState[type] = [];
         saveQueueState();
         renderQueueAll();
@@ -1380,12 +1649,23 @@ window.clearQueueSection = function(type) {
 }
 
 let draggedItem = null;
-window.dragStart = function(e, type, index) { draggedItem = { type, index }; e.dataTransfer.effectAllowed = 'move'; e.target.classList.add('dragging'); }
-window.allowDrop = function(e) { e.preventDefault(); e.currentTarget.classList.add('drag-over'); }
+window.dragStart = function(e, type, index) {
+    draggedItem = {
+        type,
+        index
+    };
+    e.dataTransfer.effectAllowed = 'move';
+    e.target.classList.add('dragging');
+}
+window.allowDrop = function(e) {
+    e.preventDefault();
+    e.currentTarget.classList.add('drag-over');
+}
 window.drop = function(e, targetType) {
-    e.preventDefault(); e.currentTarget.classList.remove('drag-over');
-    if(!draggedItem) return;
-    if(draggedItem.type !== targetType) {
+    e.preventDefault();
+    e.currentTarget.classList.remove('drag-over');
+    if (!draggedItem) return;
+    if (draggedItem.type !== targetType) {
         const item = queueState[draggedItem.type].splice(draggedItem.index, 1)[0];
         queueState[targetType].push(item);
         saveQueueState();
@@ -1396,77 +1676,87 @@ window.drop = function(e, targetType) {
 }
 
 window.processQueue = async function() {
-    if(isQueueRunning) return;
-    if(queueState.ongoing.length === 0) return alert("Ongoing queue is empty!");
-    
+    if (isQueueRunning) return;
+    if (queueState.ongoing.length === 0) return alert("Queue empty!");
+
     isQueueRunning = true;
     totalBatchSteps = queueState.ongoing.reduce((acc, job) => acc + ((job.payload.n_iter || 1) * job.payload.steps), 0);
     currentBatchProgress = 0;
-    
+
     document.getElementById('queueProgressBox').classList.remove('hidden');
     const btn = document.getElementById('startQueueBtn');
     const oldText = btn.innerText;
-    btn.innerText = "RUNNING..."; btn.disabled = true;
+    btn.innerText = "RUNNING...";
+    btn.disabled = true;
 
-    if(document.hidden) updateBatchNotification("Starting batch job...", true, `0 / ${totalBatchSteps} steps`);
+    if (document.hidden) updateBatchNotification("Starting batch job...", true, `0 / ${totalBatchSteps} steps`);
 
-    while(queueState.ongoing.length > 0) {
-        const job = queueState.ongoing[0]; 
-        try { 
-            await runJob(job, true); 
+    while (queueState.ongoing.length > 0) {
+        const job = queueState.ongoing[0];
+        try {
+            await runJob(job, true);
             const finishedJob = queueState.ongoing.shift();
             finishedJob.finishedAt = new Date().toLocaleString();
             queueState.completed.push(finishedJob);
-            saveQueueState(); 
-            renderQueueAll(); 
-        } catch(e) { 
-            console.error(e); 
+            saveQueueState();
+            renderQueueAll();
+        } catch (e) {
+            console.error(e);
             updateBatchNotification("Batch Paused", true, "Error occurred");
-            alert("Batch paused: " + e.message); 
-            break; 
+            alert("Batch paused: " + e.message);
+            break;
         }
     }
     isQueueRunning = false;
-    btn.innerText = oldText; btn.disabled = false;
+    btn.innerText = oldText;
+    btn.disabled = false;
     document.getElementById('queueProgressBox').classList.add('hidden');
-    
+
     // Stop persistent notification
-    if (ResolverService) { try { await ResolverService.stop(); } catch(e){} }
-    
+    if (ResolverService) {
+        try {
+            await ResolverService.stop();
+        } catch (e) {}
+    }
+
     // Send completion notification
     await sendCompletionNotification("Batch Complete: All images ready.");
-    
-    if(queueState.ongoing.length === 0) alert("Batch Complete!");
+
+    if (queueState.ongoing.length === 0) alert("Batch Complete!");
 }
 
 window.generate = async function() {
     const job = buildJobFromUI();
-    if(!job) return alert("Please select a model first.");
-    isSingleJobRunning = true; 
+    if (!job) return alert("Please select a model first.");
+    isSingleJobRunning = true;
     await runJob(job, false);
     isSingleJobRunning = false;
-    
+
     // Stop persistent notification
-    if (ResolverService) { try { await ResolverService.stop(); } catch(e){} }
-    
+    if (ResolverService) {
+        try {
+            await ResolverService.stop();
+        } catch (e) {}
+    }
+
     // Send completion notification
     await sendCompletionNotification("Generation Complete: Image Ready");
 }
 
-window.clearGenResults = function() { 
-    if(currentTask === 'inp') {
+window.clearGenResults = function() {
+    if (currentTask === 'inp') {
         const gal = document.getElementById('inpGallery');
-        if(gal) gal.innerHTML = '';
+        if (gal) gal.innerHTML = '';
     } else {
         const gal = document.getElementById('gallery');
-        if(gal) gal.innerHTML = ''; 
+        if (gal) gal.innerHTML = '';
     }
 }
 
 async function runJob(job, isBatch = false) {
     // --- UPDATED ISOLATION LOGIC ---
     const isInpaintJob = job.mode === 'inp';
-    
+
     // Select specific elements based on job mode
     const btnId = isInpaintJob ? 'inpGenBtn' : 'genBtn';
     const spinnerId = isInpaintJob ? 'inpLoadingSpinner' : 'loadingSpinner';
@@ -1476,35 +1766,46 @@ async function runJob(job, isBatch = false) {
     const spinner = document.getElementById(spinnerId);
     const gal = document.getElementById(galleryId);
 
-    btn.disabled = true; spinner.style.display = 'block';
+    btn.disabled = true;
+    spinner.style.display = 'block';
 
     try {
-        let isReady = false; let attempts = 0;
+        let isReady = false;
+        let attempts = 0;
         // Check if model is loaded. Logic:
         // 1. Get Options.
         // 2. Normalize Names.
         // 3. If mismatch, POST options.
-        while (!isReady && attempts < 40) { 
-            const optsReq = await fetch(`${HOST}/sdapi/v1/options`, { headers: getHeaders() });
+        while (!isReady && attempts < 40) {
+            const optsReq = await fetch(`${HOST}/sdapi/v1/options`, {
+                headers: getHeaders()
+            });
             const opts = await optsReq.json();
-            
+
             // Normalize: lowercase, remove hash, remove path
-            if (normalize(opts.sd_model_checkpoint) === normalize(job.modelTitle)) { isReady = true; break; }
-            
-            if (attempts % 5 === 0) { 
+            if (normalize(opts.sd_model_checkpoint) === normalize(job.modelTitle)) {
+                isReady = true;
+                break;
+            }
+
+            if (attempts % 5 === 0) {
                 btn.innerText = `ALIGNING... (${attempts})`;
                 // Force overrides here as well to ensure alignment
-                const loadPayload = { "sd_model_checkpoint": job.modelTitle, "forge_unet_storage_dtype": "Automatic (fp16 LoRA)" };
-                
+                const loadPayload = {
+                    "sd_model_checkpoint": job.modelTitle,
+                    "forge_unet_storage_dtype": "Automatic (fp16 LoRA)"
+                };
+
                 // CRITICAL FIX: If Inpainting, ensure we clear flux modules during alignment too
-                if(job.mode === 'inp') {
+                if (job.mode === 'inp') {
                     loadPayload["forge_additional_modules"] = [];
                     loadPayload["sd_vae"] = "Automatic";
                 }
-                
+
                 await postOption(loadPayload);
             }
-            attempts++; await new Promise(r => setTimeout(r, 1500));
+            attempts++;
+            await new Promise(r => setTimeout(r, 1500));
         }
         if (!isReady) throw new Error("Timeout: Server failed to load model.");
 
@@ -1515,15 +1816,17 @@ async function runJob(job, isBatch = false) {
 
         const progressInterval = setInterval(async () => {
             try {
-                const res = await fetch(`${HOST}/sdapi/v1/progress`, { headers: getHeaders() });
+                const res = await fetch(`${HOST}/sdapi/v1/progress`, {
+                    headers: getHeaders()
+                });
                 const data = await res.json();
                 if (data.state && data.state.sampling_steps > 0) {
-                    const currentJobIndex = data.state.job_no || 0; 
+                    const currentJobIndex = data.state.job_no || 0;
                     const currentStepInBatch = data.state.sampling_step;
                     const jobStep = (currentJobIndex * job.payload.steps) + currentStepInBatch;
                     btn.innerText = `Step ${jobStep}/${jobTotalSteps}`;
                     const msg = `Step ${jobStep} / ${jobTotalSteps}`;
-                    if(isBatch) {
+                    if (isBatch) {
                         const actualTotal = currentBatchProgress + jobStep;
                         document.getElementById('queueProgressText').innerText = `Step ${actualTotal} / ${totalBatchSteps}`;
                         updateBatchNotification("Batch Running", false, `Step ${actualTotal} / ${totalBatchSteps}`);
@@ -1533,38 +1836,49 @@ async function runJob(job, isBatch = false) {
                 } else if (btn.innerText.includes("Step")) {
                     updateBatchNotification("Finalizing...", false, "Receiving Images...");
                 }
-            } catch(e) {}
+            } catch (e) {}
         }, 1000);
 
-        const endpoint = job.mode === 'inp' ? '/sdapi/v1/img2img' : '/sdapi/v1/txt2img'; 
-        const res = await fetch(`${HOST}${endpoint}`, { method: 'POST', headers: getHeaders(), body: JSON.stringify(job.payload) });
-        
-        clearInterval(progressInterval); 
-        if(!res.ok) throw new Error("Server Error " + res.status);
-        
-        const data = await res.json();
-        if(isBatch) currentBatchProgress += jobTotalSteps;
+        const endpoint = job.mode === 'inp' ? '/sdapi/v1/img2img' : '/sdapi/v1/txt2img';
+        const res = await fetch(`${HOST}${endpoint}`, {
+            method: 'POST',
+            headers: getHeaders(),
+            body: JSON.stringify(job.payload)
+        });
 
-        if(data.images) {
+        clearInterval(progressInterval);
+        if (!res.ok) throw new Error("Server Error " + res.status);
+
+        const data = await res.json();
+        if (isBatch) currentBatchProgress += jobTotalSteps;
+
+        if (data.images) {
             for (let i = 0; i < data.images.length; i++) {
                 const b64 = data.images[i];
                 const finalB64 = "data:image/png;base64," + b64;
                 const newId = await saveImageToDB(finalB64);
-                
+
                 const img = document.createElement('img');
-                img.src = finalB64; img.className = 'gen-result'; img.loading = "lazy";
+                img.src = finalB64;
+                img.className = 'gen-result';
+                img.loading = "lazy";
                 img.onclick = () => window.openFullscreen([finalB64], 0, img, newId);
-                
-                if(gal.firstChild) gal.insertBefore(img, gal.firstChild); else gal.appendChild(img);
+
+                if (gal.firstChild) gal.insertBefore(img, gal.firstChild);
+                else gal.appendChild(img);
                 const autoDl = document.getElementById('autoDlCheck');
-                if(autoDl && autoDl.checked) saveToMobileGallery(finalB64);
+                if (autoDl && autoDl.checked) saveToMobileGallery(finalB64);
             }
         }
-    } catch(e) { throw e; } finally {
-        spinner.style.display = 'none'; btn.disabled = false; 
+    } catch (e) {
+        throw e;
+    } finally {
+        spinner.style.display = 'none';
+        btn.disabled = false;
         // --- NEO HOOK: BUTTON TEXT ---
-        if(currentTask === 'inp') { btn.innerText = "GENERATE"; } 
-        else { 
+        if (currentTask === 'inp') {
+            btn.innerText = "GENERATE";
+        } else {
             if (currentMode === 'xl') btn.innerText = "GENERATE";
             else if (currentMode === 'flux') btn.innerText = "QUANTUM GENERATE";
             else if (currentMode === 'qwen') btn.innerText = "TURBO GENERATE";
@@ -1574,33 +1888,47 @@ async function runJob(job, isBatch = false) {
 
 // ... [Keep existing Gallery/Analysis Logic] ...
 function loadGallery() {
-    const grid = document.getElementById('savedGalleryGrid'); grid.innerHTML = "";
-    if(!db) return;
+    const grid = document.getElementById('savedGalleryGrid');
+    grid.innerHTML = "";
+    if (!db) return;
     db.transaction(["images"], "readonly").objectStore("images").getAll().onsuccess = e => {
         const imgs = e.target.result;
-        if(!imgs || imgs.length === 0) { grid.innerHTML = "<div style='text-align:center;color:#777;margin-top:20px;grid-column:1/-1;'>No images</div>"; return; }
-        
+        if (!imgs || imgs.length === 0) {
+            grid.innerHTML = "<div style='text-align:center;color:#777;margin-top:20px;grid-column:1/-1;'>No images</div>";
+            return;
+        }
+
         const reversed = imgs.reverse();
         const totalPages = Math.ceil(reversed.length / ITEMS_PER_PAGE);
         if (galleryPage < 1) galleryPage = 1;
         if (galleryPage > totalPages) galleryPage = totalPages;
-        
+
         const start = (galleryPage - 1) * ITEMS_PER_PAGE;
         const end = start + ITEMS_PER_PAGE;
         const pageItems = reversed.slice(start, end);
         historyImagesData = pageItems;
-        
+
         pageItems.forEach((item, index) => {
-            const container = document.createElement('div'); container.style.position = 'relative';
-            const img = document.createElement('img'); img.src = item.data; img.className = 'gal-thumb'; img.loading = 'lazy'; 
+            const container = document.createElement('div');
+            container.style.position = 'relative';
+            const img = document.createElement('img');
+            img.src = item.data;
+            img.className = 'gal-thumb';
+            img.loading = 'lazy';
             img.onclick = () => {
-                if(isSelectionMode) toggleSelectionForId(item.id, container);
-                else window.openFullscreenFromGallery(index); 
+                if (isSelectionMode) toggleSelectionForId(item.id, container);
+                else window.openFullscreenFromGallery(index);
             };
-            const tick = document.createElement('div'); tick.className = 'gal-tick hidden';
+            const tick = document.createElement('div');
+            tick.className = 'gal-tick hidden';
             tick.innerHTML = '<i data-lucide="check-circle" size="24" color="#00e676" fill="black"></i>';
-            tick.style.position = 'absolute'; tick.style.top = '5px'; tick.style.right = '5px';
-            container.appendChild(img); container.appendChild(tick); container.dataset.id = item.id; grid.appendChild(container);
+            tick.style.position = 'absolute';
+            tick.style.top = '5px';
+            tick.style.right = '5px';
+            container.appendChild(img);
+            container.appendChild(tick);
+            container.dataset.id = item.id;
+            grid.appendChild(container);
         });
         document.getElementById('pageIndicator').innerText = `Page ${galleryPage} / ${totalPages}`;
         document.getElementById('prevPageBtn').disabled = galleryPage === 1;
@@ -1609,57 +1937,145 @@ function loadGallery() {
     }
 }
 
-window.changeGalleryPage = function(dir) { galleryPage += dir; loadGallery(); }
+window.changeGalleryPage = function(dir) {
+    galleryPage += dir;
+    loadGallery();
+}
 
 window.toggleGallerySelectionMode = function() {
     isSelectionMode = !isSelectionMode;
     const btn = document.getElementById('galSelectBtn');
     const delBtn = document.getElementById('galDeleteBtn');
-    if(isSelectionMode) { btn.style.background = "var(--accent-primary)"; btn.style.color = "white"; delBtn.classList.remove('hidden'); }
-    else { btn.style.background = "var(--input-bg)"; btn.style.color = "var(--text-main)"; delBtn.classList.add('hidden'); selectedImageIds.clear(); document.querySelectorAll('.gal-tick').forEach(t => t.classList.add('hidden')); updateDeleteBtn(); }
+    if (isSelectionMode) {
+        btn.style.background = "var(--accent-primary)";
+        btn.style.color = "white";
+        delBtn.classList.remove('hidden');
+    } else {
+        btn.style.background = "var(--input-bg)";
+        btn.style.color = "var(--text-main)";
+        delBtn.classList.add('hidden');
+        selectedImageIds.clear();
+        document.querySelectorAll('.gal-tick').forEach(t => t.classList.add('hidden'));
+        updateDeleteBtn();
+    }
 }
 
 function toggleSelectionForId(id, container) {
     const tick = container.querySelector('.gal-tick');
-    if(selectedImageIds.has(id)) { selectedImageIds.delete(id); tick.classList.add('hidden'); }
-    else { selectedImageIds.add(id); tick.classList.remove('hidden'); }
+    if (selectedImageIds.has(id)) {
+        selectedImageIds.delete(id);
+        tick.classList.add('hidden');
+    } else {
+        selectedImageIds.add(id);
+        tick.classList.remove('hidden');
+    }
     updateDeleteBtn();
 }
 
-function updateDeleteBtn() { document.getElementById('galDeleteBtn').innerText = `DELETE (${selectedImageIds.size})`; }
+function updateDeleteBtn() {
+    document.getElementById('galDeleteBtn').innerText = `DELETE (${selectedImageIds.size})`;
+}
 
 window.deleteSelectedImages = function() {
-    if(selectedImageIds.size === 0) return;
-    if(!confirm(`Delete ${selectedImageIds.size} images?`)) return;
+    if (selectedImageIds.size === 0) return;
+    if (!confirm(`Delete ${selectedImageIds.size} images?`)) return;
     const tx = db.transaction(["images"], "readwrite");
     const store = tx.objectStore("images");
     selectedImageIds.forEach(id => store.delete(id));
-    tx.oncomplete = () => { selectedImageIds.clear(); isSelectionMode = false; document.getElementById('galSelectBtn').style.background = "var(--input-bg)"; document.getElementById('galDeleteBtn').classList.add('hidden'); loadGallery(); };
+    tx.oncomplete = () => {
+        selectedImageIds.clear();
+        isSelectionMode = false;
+        document.getElementById('galSelectBtn').style.background = "var(--input-bg)";
+        document.getElementById('galDeleteBtn').classList.add('hidden');
+        loadGallery();
+    };
 }
 
-window.openFullscreenFromGallery = function(index) { currentGalleryImages = [...historyImagesData]; currentGalleryIndex = index; updateLightboxImage(); document.getElementById('fullScreenModal').classList.remove('hidden'); }
-window.openFullscreen = function(imagesArray, index, domElement = null, dbId = null) { currentGalleryImages = imagesArray.map(b64 => ({ id: dbId, data: b64, domElement: domElement })); currentGalleryIndex = index; updateLightboxImage(); document.getElementById('fullScreenModal').classList.remove('hidden'); }
-function updateLightboxImage() { if(currentGalleryImages.length > 0 && currentGalleryImages[currentGalleryIndex]) { document.getElementById('fsImage').src = currentGalleryImages[currentGalleryIndex].data; } }
-window.slideImage = function(dir) { if(currentGalleryImages.length === 0) return; currentGalleryIndex += dir; if(currentGalleryIndex < 0) currentGalleryIndex = currentGalleryImages.length - 1; if(currentGalleryIndex >= currentGalleryImages.length) currentGalleryIndex = 0; updateLightboxImage(); }
-window.deleteCurrentFsImage = function() {
-    const currentItem = currentGalleryImages[currentGalleryIndex]; if(!currentItem) return;
-    if(confirm("Delete this image?")) {
-        if(currentItem.id) { const tx = db.transaction(["images"], "readwrite"); tx.objectStore("images").delete(currentItem.id); tx.oncomplete = () => { currentGalleryImages.splice(currentGalleryIndex, 1); finishDeleteAction(currentItem); }; }
-        else { currentGalleryImages.splice(currentGalleryIndex, 1); finishDeleteAction(currentItem); }
+window.openFullscreenFromGallery = function(index) {
+    currentGalleryImages = [...historyImagesData];
+    currentGalleryIndex = index;
+    updateLightboxImage();
+    document.getElementById('fullScreenModal').classList.remove('hidden');
+}
+window.openFullscreen = function(imagesArray, index, domElement = null, dbId = null) {
+    currentGalleryImages = imagesArray.map(b64 => ({
+        id: dbId,
+        data: b64,
+        domElement: domElement
+    }));
+    currentGalleryIndex = index;
+    updateLightboxImage();
+    document.getElementById('fullScreenModal').classList.remove('hidden');
+}
+
+function updateLightboxImage() {
+    if (currentGalleryImages.length > 0 && currentGalleryImages[currentGalleryIndex]) {
+        document.getElementById('fsImage').src = currentGalleryImages[currentGalleryIndex].data;
     }
 }
-function finishDeleteAction(item) { if(item.domElement) item.domElement.remove(); if(currentGalleryImages.length === 0) { window.closeFsModal(); loadGallery(); } else { if(currentGalleryIndex >= currentGalleryImages.length) currentGalleryIndex--; updateLightboxImage(); loadGallery(); } }
-window.downloadCurrent = function() { const src = document.getElementById('fsImage').src; saveToMobileGallery(src); }
+window.slideImage = function(dir) {
+    if (currentGalleryImages.length === 0) return;
+    currentGalleryIndex += dir;
+    if (currentGalleryIndex < 0) currentGalleryIndex = currentGalleryImages.length - 1;
+    if (currentGalleryIndex >= currentGalleryImages.length) currentGalleryIndex = 0;
+    updateLightboxImage();
+}
+window.deleteCurrentFsImage = function() {
+    const currentItem = currentGalleryImages[currentGalleryIndex];
+    if (!currentItem) return;
+    if (confirm("Delete this image?")) {
+        if (currentItem.id) {
+            const tx = db.transaction(["images"], "readwrite");
+            tx.objectStore("images").delete(currentItem.id);
+            tx.oncomplete = () => {
+                currentGalleryImages.splice(currentGalleryIndex, 1);
+                finishDeleteAction(currentItem);
+            };
+        } else {
+            currentGalleryImages.splice(currentGalleryIndex, 1);
+            finishDeleteAction(currentItem);
+        }
+    }
+}
+
+function finishDeleteAction(item) {
+    if (item.domElement) item.domElement.remove();
+    if (currentGalleryImages.length === 0) {
+        window.closeFsModal();
+        loadGallery();
+    } else {
+        if (currentGalleryIndex >= currentGalleryImages.length) currentGalleryIndex--;
+        updateLightboxImage();
+        loadGallery();
+    }
+}
+window.downloadCurrent = function() {
+    const src = document.getElementById('fsImage').src;
+    saveToMobileGallery(src);
+}
 window.closeFsModal = () => document.getElementById('fullScreenModal').classList.add('hidden');
-function gcd(a, b) { return b ? gcd(b, a % b) : a; }
-window.analyzeCurrentFs = () => { window.closeFsModal(); window.switchTab('ana'); fetch(document.getElementById('fsImage').src).then(res => res.blob()).then(processImageForAnalysis); }
-window.handleFileSelect = e => { const file = e.target.files[0]; if(!file) return; processImageForAnalysis(file); }
+
+function gcd(a, b) {
+    return b ? gcd(b, a % b) : a;
+}
+window.analyzeCurrentFs = () => {
+    window.closeFsModal();
+    window.switchTab('ana');
+    fetch(document.getElementById('fsImage').src).then(res => res.blob()).then(processImageForAnalysis);
+}
+window.handleFileSelect = e => {
+    const file = e.target.files[0];
+    if (!file) return;
+    processImageForAnalysis(file);
+}
 
 async function processImageForAnalysis(blob) {
     const url = URL.createObjectURL(blob);
     const img = new Image();
     img.onload = () => {
-        const w = img.width; const h = img.height; const d = gcd(w, h);
+        const w = img.width;
+        const h = img.height;
+        const d = gcd(w, h);
         document.getElementById('resOut').innerText = `${w} x ${h}`;
         document.getElementById('arOut').innerText = `${w/d}:${h/d}`;
         document.getElementById('anaPreview').src = url;
@@ -1669,40 +2085,112 @@ async function processImageForAnalysis(blob) {
     const text = await readPngMetadata(blob);
     document.getElementById('anaMeta').innerText = text || "No parameters found.";
     const btnContainer = document.getElementById('anaCopyButtons');
-    if (text) { currentAnalyzedPrompts = parseGenInfo(text); if(btnContainer) btnContainer.classList.remove('hidden'); } else { currentAnalyzedPrompts = null; if(btnContainer) btnContainer.classList.add('hidden'); }
+    if (text) {
+        currentAnalyzedPrompts = parseGenInfo(text);
+        if (btnContainer) btnContainer.classList.remove('hidden');
+    } else {
+        currentAnalyzedPrompts = null;
+        if (btnContainer) btnContainer.classList.add('hidden');
+    }
 }
-function parseGenInfo(rawText) {
-    if (!rawText) return { pos: "", neg: "" };
-    let pos = ""; let neg = "";
-    const negSplit = rawText.split("Negative prompt:");
-    if (negSplit.length > 1) { pos = negSplit[0].trim(); const paramsSplit = negSplit[1].split(/(\nSteps: |Steps: )/); if (paramsSplit.length > 1) { neg = paramsSplit[0].trim(); } else { neg = negSplit[1].trim(); } } else { const paramSplit = rawText.split(/(\nSteps: |Steps: )/); if (paramSplit.length > 1) { pos = paramSplit[0].trim(); } else { pos = rawText.trim(); } }
-    return { pos, neg };
-}
-window.copyToSdxl = function() { if (!currentAnalyzedPrompts) return; document.getElementById('xl_prompt').value = currentAnalyzedPrompts.pos; document.getElementById('xl_neg').value = currentAnalyzedPrompts.neg; window.setMode('xl'); window.switchTab('gen'); if(Toast) Toast.show({ text: 'Copied to SDXL', duration: 'short' }); }
-window.copyToFlux = function() { if (!currentAnalyzedPrompts) return; document.getElementById('flux_prompt').value = currentAnalyzedPrompts.pos; window.setMode('flux'); window.switchTab('gen'); if(Toast) Toast.show({ text: 'Copied to FLUX', duration: 'short' }); }
-// --- NEO HOOK: ANALYZER COPY ---
-window.copyToQwen = function() { if (!currentAnalyzedPrompts) return; document.getElementById('qwen_prompt').value = currentAnalyzedPrompts.pos; document.getElementById('qwen_neg').value = currentAnalyzedPrompts.neg || "bad quality, blur, watermark"; window.setMode('qwen'); window.switchTab('gen'); if(Toast) Toast.show({ text: 'Copied to QWEN', duration: 'short' }); }
 
-function loadAutoDlState() { const c = document.getElementById('autoDlCheck'); if(c) c.checked = localStorage.getItem('bojroAutoSave') === 'true'; }
+function parseGenInfo(rawText) {
+    if (!rawText) return {
+        pos: "",
+        neg: ""
+    };
+    let pos = "";
+    let neg = "";
+    const negSplit = rawText.split("Negative prompt:");
+    if (negSplit.length > 1) {
+        pos = negSplit[0].trim();
+        const paramsSplit = negSplit[1].split(/(\nSteps: |Steps: )/);
+        if (paramsSplit.length > 1) {
+            neg = paramsSplit[0].trim();
+        } else {
+            neg = negSplit[1].trim();
+        }
+    } else {
+        const paramSplit = rawText.split(/(\nSteps: |Steps: )/);
+        if (paramSplit.length > 1) {
+            pos = paramSplit[0].trim();
+        } else {
+            pos = rawText.trim();
+        }
+    }
+    return {
+        pos,
+        neg
+    };
+}
+window.copyToSdxl = function() {
+    if (!currentAnalyzedPrompts) return;
+    document.getElementById('xl_prompt').value = currentAnalyzedPrompts.pos;
+    document.getElementById('xl_neg').value = currentAnalyzedPrompts.neg;
+    window.setMode('xl');
+    window.switchTab('gen');
+    if (Toast) Toast.show({
+        text: 'Copied to SDXL',
+        duration: 'short'
+    });
+}
+window.copyToFlux = function() {
+    if (!currentAnalyzedPrompts) return;
+    document.getElementById('flux_prompt').value = currentAnalyzedPrompts.pos;
+    window.setMode('flux');
+    window.switchTab('gen');
+    if (Toast) Toast.show({
+        text: 'Copied to FLUX',
+        duration: 'short'
+    });
+}
+// --- NEO HOOK: ANALYZER COPY ---
+window.copyToQwen = function() {
+    if (!currentAnalyzedPrompts) return;
+    document.getElementById('qwen_prompt').value = currentAnalyzedPrompts.pos;
+    document.getElementById('qwen_neg').value = currentAnalyzedPrompts.neg || "bad quality, blur, watermark";
+    window.setMode('qwen');
+    window.switchTab('gen');
+    if (Toast) Toast.show({
+        text: 'Copied to QWEN',
+        duration: 'short'
+    });
+}
+
+function loadAutoDlState() {
+    const c = document.getElementById('autoDlCheck');
+    if (c) c.checked = localStorage.getItem('bojroAutoSave') === 'true';
+}
 window.saveAutoDlState = () => localStorage.setItem('bojroAutoSave', document.getElementById('autoDlCheck').checked);
 
 async function readPngMetadata(blob) {
     try {
         const buffer = await blob.arrayBuffer();
         const view = new DataView(buffer);
-        let offset = 8; let metadata = "";
+        let offset = 8;
+        let metadata = "";
         while (offset < view.byteLength) {
             const length = view.getUint32(offset);
-            const type = String.fromCharCode(view.getUint8(offset+4), view.getUint8(offset+5), view.getUint8(offset+6), view.getUint8(offset+7));
-            if (type === 'tEXt') { const data = new Uint8Array(buffer, offset + 8, length); metadata += new TextDecoder().decode(data) + "\n"; }
-            if (type === 'iTXt') { const data = new Uint8Array(buffer, offset + 8, length); const text = new TextDecoder().decode(data); metadata += text + "\n"; }
-            offset += 12 + length; 
+            const type = String.fromCharCode(view.getUint8(offset + 4), view.getUint8(offset + 5), view.getUint8(offset + 6), view.getUint8(offset + 7));
+            if (type === 'tEXt') {
+                const data = new Uint8Array(buffer, offset + 8, length);
+                metadata += new TextDecoder().decode(data) + "\n";
+            }
+            if (type === 'iTXt') {
+                const data = new Uint8Array(buffer, offset + 8, length);
+                const text = new TextDecoder().decode(data);
+                metadata += text + "\n";
+            }
+            offset += 12 + length;
         }
         metadata = metadata.trim();
         if (!metadata) return null;
         metadata = metadata.replace(/^parameters\0/, '');
         return metadata;
-    } catch (e) { console.error("Metadata read error:", e); return null; }
+    } catch (e) {
+        console.error("Metadata read error:", e);
+        return null;
+    }
 }
 
 
@@ -1724,14 +2212,14 @@ window.togglePowerSettings = function() {
 
 window.savePowerSettings = function() {
     const ipInput = document.getElementById('power-server-ip').value.trim();
-    
+
     if (ipInput) {
         // Ensure protocol exists (http://)
         let formattedIP = ipInput;
         if (!formattedIP.startsWith('http')) {
             formattedIP = 'http://' + formattedIP;
         }
-        
+
         // Remove trailing slash if present
         if (formattedIP.endsWith('/')) {
             formattedIP = formattedIP.slice(0, -1);
@@ -1739,7 +2227,10 @@ window.savePowerSettings = function() {
 
         localStorage.setItem('bojro_power_ip', formattedIP);
         togglePowerSettings();
-        if(Toast) Toast.show({text: 'Power Config Saved', duration: 'short'});
+        if (Toast) Toast.show({
+            text: 'Power Config Saved',
+            duration: 'short'
+        });
     } else {
         alert("Please enter a valid IP address.");
     }
@@ -1757,7 +2248,10 @@ window.sendPowerSignal = async function() {
 
     // Visual Feedback
     btn.classList.add('active');
-    if(Toast) Toast.show({text: 'Sending Wake Signal...', duration: 'short'});
+    if (Toast) Toast.show({
+        text: 'Sending Wake Signal...',
+        duration: 'short'
+    });
 
     try {
         const targetUrl = `${serverUrl}/power`;
@@ -1767,8 +2261,11 @@ window.sendPowerSignal = async function() {
             method: 'POST'
         });
 
-        if(Toast) Toast.show({text: 'Signal Sent! Starting Services...', duration: 'long'});
-        
+        if (Toast) Toast.show({
+            text: 'Signal Sent! Starting Services...',
+            duration: 'long'
+        });
+
         setTimeout(() => {
             btn.classList.remove('active');
         }, 3000);
@@ -1777,7 +2274,10 @@ window.sendPowerSignal = async function() {
         console.error(error);
         // Even if it fails (e.g. CORS error but signal sent, or network down),
         // we display a generic toast because a simple server script might not respond cleanly.
-        if(Toast) Toast.show({text: 'Signal Sent (Or Check Connection)', duration: 'short'});
+        if (Toast) Toast.show({
+            text: 'Signal Sent (Or Check Connection)',
+            duration: 'short'
+        });
         btn.classList.remove('active');
     }
 }
