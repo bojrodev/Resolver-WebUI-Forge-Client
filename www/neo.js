@@ -6,12 +6,12 @@
  */
 
 const Neo = {
-    // defaults optimized for Z-Image Turbo (Decoupled-DMD) with LCM
+    // defaults optimized for Z-Image Turbo (Decoupled-DMD)
     defaults: {
         steps: 8,
         cfg: 1.0,  
-        sampler: "LCM", 
-        scheduler: "Normal"
+        sampler: "Euler", 
+        scheduler: "Simple"
     },
 
     // Called by app.js when models are fetched
@@ -43,11 +43,17 @@ const Neo = {
              sel.appendChild(new Option(s.name, s.name));
          });
          
-         // Set LCM as default if available (Critical for Turbo)
-         if(Array.from(sel.options).some(o => o.value === "LCM")) {
-             sel.value = "LCM";
+         // 1. Set Default Sampler to Euler
+         if(Array.from(sel.options).some(o => o.value === "Euler")) {
+             sel.value = "Euler";
          } else if(Array.from(sel.options).some(o => o.value === "Euler a")) {
              sel.value = "Euler a";
+         }
+
+         // 2. Set Default Scheduler to Simple (if element exists)
+         const sched = document.getElementById('qwen_scheduler');
+         if(sched) {
+             sched.value = "Simple";
          }
     },
 
@@ -92,6 +98,24 @@ const Neo = {
         });
     },
 
+    // Helper to read the main VRAM Profile dropdown
+    getMemoryReserve: function() {
+        const profileEl = document.getElementById('vramProfile');
+        const profile = profileEl ? profileEl.value : 'mid';
+
+        // Returns amount to RESERVE (Inversed Logic)
+        switch (profile) {
+            case 'low':
+                return 6144; // 6GB Reserve (Forces Offload - Safe)
+            case 'high':
+                return 1024; // 1GB Reserve (Aggressive - Might Crash)
+            case 'mid':
+            default:
+                // FIX: 6GB Reserve to force Qwen Encoder (8.4GB) to RAM
+                return 6144; 
+        }
+    },
+
     // The Bridge: Constructs the API payload for Forge
     buildJob: function() {
         const modelTitle = document.getElementById('qwen_modelSelect').value;
@@ -128,7 +152,9 @@ const Neo = {
             "sd_model_checkpoint": modelTitle,
             "sd_vae": vae === "Automatic" ? "Automatic" : "Automatic", 
             "forge_additional_modules": modulesToLoad, 
-            "forge_unet_storage_dtype": bits
+            "forge_unet_storage_dtype": bits,
+            // CRITICAL FIX: Reserve 6GB to force Offload
+            "forge_inference_memory": this.getMemoryReserve() 
         };
 
         // 3. Construct Payload

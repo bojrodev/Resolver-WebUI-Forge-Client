@@ -401,17 +401,26 @@ async function saveToMobileGallery(base64Data) {
     }
 }
 
+// *** FIXED VRAM PROFILE LOGIC FOR FLUX (12GB 3060) ***
 function getVramMapping() {
     const profile = document.getElementById('vramProfile').value;
     switch (profile) {
         case 'low':
-            return 4096;
+            // "Neo" Safety Mode: Reserves 6GB.
+            // Available: ~6GB. Forces aggressive offloading. Safe but might slow down main model.
+            return 6144; 
         case 'mid':
-            return 1536;
+            // "Goldilocks Zone": Reserves 4.5 GB.
+            // Logic: 12GB - 4.5GB = 7.5GB Available.
+            // Flux (6.65) fits.
+            // Remaining ~0.85GB -> Too small for T5 (4.55GB) -> T5 forced to RAM.
+            return 4608; 
         case 'high':
-            return 4096;
+            // "Risky": Reserves 1GB.
+            // Available: ~11GB. Tries to fit everything. Risk of OOM/Swap.
+            return 1024; 
         default:
-            return 1536;
+            return 4608;
     }
 }
 
@@ -1438,6 +1447,7 @@ function buildJobFromUI() {
 
     let payload = {};
     let overrides = {};
+    // CRITICAL: Ensure we use the new calculated profiles
     overrides["forge_inference_memory"] = getVramMapping();
     overrides["forge_unet_storage_dtype"] = "Automatic (fp16 LoRA)";
 
