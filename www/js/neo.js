@@ -1,8 +1,7 @@
 /**
- * NEO MODULE (Cleaned)
+ * NEO MODULE
  * Specialized logic for Z-Image Turbo (Qwen) and S3-DiT Architectures.
  * Isolated from main app logic to prevent regression.
- * * NOTE: LoRA logic has been moved to lora.js
  */
 
 const Neo = {
