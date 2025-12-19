@@ -234,7 +234,7 @@ window.LoraManager = {
                 <img src="icon.png" class="lora-item-thumb" id="thumb-${this.simpleHash(lora.name)}">
                 <div class="lora-item-info">
                     <div class="lora-item-name">${cleanName}</div>
-                    <div class="lora-item-meta">${isXl ? 'SDXL' : 'SD1.5'} ${isActive ? '• ACTIVE' : ''}</div>
+                    <div class="lora-item-meta">${isActive ? 'ACTIVE' : ''}</div>
                 </div>
                 <button class="lora-btn-action" style="color:var(--text-muted)" onclick="event.stopPropagation(); window.openLoraSettings(event, '${lora.name}', '${lora.path.replace(/\\/g, '/')}')">
                     <i data-lucide="settings-2" size="16"></i>
