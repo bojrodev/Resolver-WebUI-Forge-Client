@@ -45,11 +45,15 @@ Unlike standard browser wrappers, Resolver utilizes **Native Android Foreground 
 | **Home/SDXL** | **Flux UI** | **LoRA Manager** |
 |:---:|:---:|:---:|
 | ![Home UI Placeholder](<img width="415" height="960" alt="Home" src="https://github.com/user-attachments/assets/73bc7ab2-47ea-4598-9757-c86be9ad03c7" />
-) | ![Flux UI Placeholder](https://placehold.co/250x500?text=Flux+Interface) | ![LoRA Manager Placeholder](https://placehold.co/250x500?text=LoRA+Manager) |
+) | ![Flux UI Placeholder](<img width="403" height="955" alt="Flux" src="https://github.com/user-attachments/assets/e132a4d3-e33a-479f-af4a-566bd81b04a5" />
+) | ![LoRA Manager Placeholder](<img width="395" height="968" alt="Lora" src="https://github.com/user-attachments/assets/4147b392-b351-4e70-8716-38c4c2e7cc30" />
+) |
 
 | **Inpainting Canvas** | **Qwen / Turbo Mode** | **Magic Prompt (LLM)** |
 |:---:|:---:|:---:|
-| ![Inpaint Placeholder](https://placehold.co/250x500?text=Inpainting) | ![Qwen UI Placeholder](https://placehold.co/250x500?text=Qwen+Turbo) | ![LLM Placeholder](https://placehold.co/250x500?text=Magic+Prompt) |
+| ![Inpaint Placeholder](<img width="413" height="974" alt="inpainting" src="https://github.com/user-attachments/assets/b489e035-32e3-4392-87b8-fbcfde706134" />
+) | ![Qwen UI Placeholder](<img width="412" height="958" alt="Qwen" src="https://github.com/user-attachments/assets/38ab45ce-663c-4b45-91e8-ba77be3f67d9" />
+) | ![LLM Placeholder](https://placehold.co/250x500?text=Magic+Prompt) |
 
 ---
 
