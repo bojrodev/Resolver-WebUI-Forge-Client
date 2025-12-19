@@ -1,15 +1,15 @@
 # Resolver: Native Android Client for WebUI Forge (Flux, SDXL & Qwen)
 
-![Version](https://img.shields.io/badge/Version-2.0%20Hybrid-purple.svg)
+![Version](https://img.shields.io/badge/Version-1.1-purple.svg)
 ![Platform](https://img.shields.io/badge/Platform-Android%2010+-green.svg)
-![Backend](https://img.shields.io/badge/Backend-WebUI%20Forge-blue)
+![Backend](https://img.shields.io/badge/Backend-Forge%20Neo-blue)
 ![License](https://img.shields.io/badge/License-GPLv3-red.svg)
 
-**Resolver** is the ultimate **native Android interface** for [Stable Diffusion WebUI Forge](https://github.com/lllyasviel/stable-diffusion-webui-forge).
+**Resolver** is the ultimate **native Android interface** for [Stable Diffusion WebUI Forge Neo](https://github.com/Haoming02/sd-webui-forge-classic/tree/neo).
 
 Unlike standard browser wrappers, Resolver utilizes **Native Android Foreground Services** and Wake Locks. This ensures your image generation queue continues processing background tasks (batch generations, huge Flux GGUF workflows) even when your phone screen is off or the app is minimized.
 
-> **✨ Major Update:** Now supporting **Flux GGUF**, **SDXL**, and **Qwen (Z-Image Turbo)** pipelines with a dedicated LoRA Management System and Local LLM integration.
+> **✨ Major Update (v1.1):** Now supporting **Flux GGUF**, **SDXL**, and **Qwen (Z-Image Turbo)** pipelines with a dedicated LoRA Management System and Local LLM integration.
 
 ---
 
@@ -72,14 +72,19 @@ Resolver includes a remote wake/shutdown feature, allowing you to turn on your P
 
 ## 🛠️ Installation & Setup
 
-### 1. Prepare WebUI Forge (PC)
-You must launch Forge with the API enabled and CORS allowed for the mobile client to connect.
-1.  Edit your `webui-user.bat` file.
-2.  Add the following to `COMMANDLINE_ARGS`:
+### 1. Install "Forge Neo" (PC)
+This app is strictly optimized for **Forge Neo** (Haoming02's branch), which supports Qwen, Z-Image, and Wan 2.2 models. Standard Forge may lack the necessary API endpoints for these features.
+
+1.  Clone the **Neo** branch of WebUI Forge:
+    ```bash
+    git clone [https://github.com/Haoming02/sd-webui-forge-classic](https://github.com/Haoming02/sd-webui-forge-classic) sd-webui-forge-neo --branch neo
+    ```
+2.  Edit your `webui-user.bat` file in the new folder.
+3.  Add the following to `COMMANDLINE_ARGS`:
     ```bat
     --listen --api --cors-allow-origins *
     ```
-3.  Run Forge.
+4.  Run `webui-user.bat`.
 
 ### 2. Install Resolver (Android)
 * Download the latest `.apk` from the **[Releases Page](#)**.
