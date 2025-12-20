@@ -26,6 +26,27 @@ window.switchTab = function(view) {
     if (view === 'inp') {
         items[1].classList.add('active');
         currentTask = 'inp';
+        
+        // --- FIX: ENFORCE INPAINT SAMPLER DEFAULT ---
+        const inpSamplerEl = document.getElementById('inp_sampler');
+        const savedSampler = localStorage.getItem('bojro_inp_sampler');
+        
+        if (savedSampler) {
+            // Restore saved user preference
+            if (inpSamplerEl.value !== savedSampler) {
+                // Check if the option exists before setting it
+                const optionExists = Array.from(inpSamplerEl.options).some(o => o.value === savedSampler);
+                if (optionExists) inpSamplerEl.value = savedSampler;
+            }
+        } else {
+            // No save found -> Enforce Default: DPM++ 2M SDE
+            const targetDefault = "DPM++ 2M SDE";
+            const optionExists = Array.from(inpSamplerEl.options).some(o => o.value === targetDefault);
+            if (optionExists && inpSamplerEl.value !== targetDefault) {
+                inpSamplerEl.value = targetDefault;
+                localStorage.setItem('bojro_inp_sampler', targetDefault); // Save it as new default
+            }
+        }
     }
     if (view === 'que') {
         items[2].classList.add('active');
@@ -109,6 +130,10 @@ window.saveSelection = function(key) {
     else if (key === 'flux') localStorage.setItem('bojroModel_flux', document.getElementById('flux_modelSelect').value);
     else if (key === 'inp') localStorage.setItem('bojroModel_inp', document.getElementById('inp_modelSelect').value);
     else if (key === 'flux_bits') localStorage.setItem('bojro_flux_bits', document.getElementById('flux_bits').value);
+    else if (key === 'inp_content') localStorage.setItem('bojro_inp_content', document.getElementById('inp_content').value);
+    else if (key === 'inp_padding') localStorage.setItem('bojro_inp_padding', document.getElementById('inp_padding').value);
+    // NEW: Save Inpaint Sampler
+    else if (key === 'inp_sampler') localStorage.setItem('bojro_inp_sampler', document.getElementById('inp_sampler').value);
     // --- NEO HOOK: SAVE QWEN ---
     else if (key === 'qwen') localStorage.setItem('bojroModel_qwen', document.getElementById('qwen_modelSelect').value);
     else if (key === 'qwen_bits') localStorage.setItem('bojro_qwen_bits', document.getElementById('qwen_bits').value);

@@ -382,7 +382,7 @@
                     </div>
 
                     <div class="row" style="margin-top:10px;">
-                        <div class="col"><label>Sampler</label><select id="inp_sampler"><option>Euler a</option></select></div>
+                        <div class="col"><label>Sampler</label><select id="inp_sampler" onchange="saveSelection('inp_sampler')"><option>DPM++ 2M SDE</option></select></div>
                         <div class="col"><label>Schedule</label><select id="inp_scheduler"><option>Karras</option></select></div>
                     </div>
 
@@ -392,9 +392,25 @@
                     </div>
 
                     <div class="col" style="margin-top:10px;">
+                        <label>Masked Content</label>
+                        <select id="inp_content" onchange="saveSelection('inp_content')" style="padding: 8px; font-size: 11px;">
+                            <option value="0">Fill</option>
+                            <option value="1" selected>Original</option>
+                            <option value="2">Latent Noise</option>
+                            <option value="3">Latent Nothing</option>
+                        </select>
+                        <script>
+                            try {
+                                const savedInpContent = localStorage.getItem('bojro_inp_content');
+                                if (savedInpContent) document.getElementById('inp_content').value = savedInpContent;
+                            } catch(e){}
+                        </script>
+                    </div>
+
+                    <div class="col" style="margin-top:10px;">
                         <label>Denoising (0.0-1.0)</label>
                         <div class="row">
-                            <input type="range" id="denoisingStrength" min="0" max="1" step="0.05" value="0.75" class="orange-slider" oninput="document.getElementById('denoiseVal').innerText = this.value">
+                            <input type="range" id="denoisingStrength" min="0" max="1" step="0.01" value="0.75" class="orange-slider" oninput="document.getElementById('denoiseVal').innerText = this.value">
                             <span id="denoiseVal" style="font-family:monospace; color:var(--accent-primary);">0.75</span>
                         </div>
                     </div>
@@ -405,6 +421,23 @@
                              <span id="blurVal" style="font-family:monospace; color:var(--text-muted); font-size:10px;">4</span>
                          </div>
                          <input type="range" id="inp_mask_blur" min="0" max="64" step="1" value="4" class="orange-slider" oninput="document.getElementById('blurVal').innerText = this.value">
+                    </div>
+
+                    <div class="col" style="margin-top:10px;">
+                         <div class="row" style="justify-content:space-between;">
+                             <label>Mask Padding (px)</label>
+                             <span id="paddingVal" style="font-family:monospace; color:var(--text-muted); font-size:10px;">32</span>
+                         </div>
+                         <input type="range" id="inp_padding" min="0" max="256" step="4" value="32" class="orange-slider" oninput="document.getElementById('paddingVal').innerText = this.value" onchange="saveSelection('inp_padding')">
+                         <script>
+                            try {
+                                const savedPad = localStorage.getItem('bojro_inp_padding');
+                                if (savedPad) {
+                                    document.getElementById('inp_padding').value = savedPad;
+                                    document.getElementById('paddingVal').innerText = savedPad;
+                                }
+                            } catch(e){}
+                         </script>
                     </div>
 
                     <div class="row" style="margin-top:10px; justify-content:space-between; align-items: center;">
