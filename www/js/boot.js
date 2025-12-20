@@ -25,6 +25,7 @@ window.onload = function() {
         loadAutoDlState();         // ui.js
         loadLlmSettings();         // ui.js
         loadPowerSettings();       // ui.js
+        loadSavedPrompts();        // ui.js - RESTORE PROMPTS
 
         // 4. Setup Background & Notifications
         setupBackgroundListeners(); // utils.js

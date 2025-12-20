@@ -107,10 +107,13 @@
             <div id="mode-xl-container">
                 <div class="col" style="margin-bottom: 20px;">
                     <div class="row" style="justify-content:space-between; margin-bottom: 5px;">
-                         <label><i data-lucide="sparkles" size="12"></i> Prompt</label>
+                         <div style="display:flex; align-items:center; gap:8px;">
+                             <label style="margin:0;"><i data-lucide="sparkles" size="12"></i> Prompt</label>
+                             <button onclick="resetPrompt('xl')" class="btn-icon" style="width:20px; height:20px; padding:2px; color:var(--text-muted);" title="Reset Default"><i data-lucide="trash-2" size="12"></i></button>
+                         </div>
                          <button onclick="openLlmModal('xl')" class="btn-small" style="width: auto; padding: 4px 8px; font-size: 10px; border-color: var(--accent-primary); color: var(--accent-primary);"><i data-lucide="bot" size="10" style="margin-right:4px;"></i>MAGIC PROMPT</button>
                     </div>
-                    <textarea id="xl_prompt" rows="3">1girl, hand fan, solo, black hair, long hair, jewelry, earrings, holding, chinese clothes, hair ornament, holding fan, red nails, looking at viewer, upper body, long sleeves, red lips, folding fan, smoke, hanfu, nail polish, masterpiece, best quality</textarea>
+                    <textarea id="xl_prompt" rows="3" oninput="savePrompt('xl')">1girl, hand fan, solo, black hair, long hair, jewelry, earrings, holding, chinese clothes, hair ornament, holding fan, red nails, looking at viewer, upper body, long sleeves, red lips, folding fan, smoke, hanfu, nail polish, masterpiece, best quality</textarea>
                     <button onclick="openLoraModal('xl')" class="btn-small dashed">+ ADD LORA</button>
                     <label><i data-lucide="shield-off" size="12"></i> Negative</label>
                     <textarea id="xl_neg" style="min-height: 50px;">bad quality,worst quality,worst detail</textarea>
@@ -186,10 +189,13 @@
 
                 <div class="col" style="margin-bottom: 20px;">
                     <div class="row" style="justify-content:space-between; margin-bottom: 5px;">
-                        <label><i data-lucide="sparkles" size="12"></i> Prompt</label>
+                        <div style="display:flex; align-items:center; gap:8px;">
+                            <label style="margin:0;"><i data-lucide="sparkles" size="12"></i> Prompt</label>
+                            <button onclick="resetPrompt('flux')" class="btn-icon" style="width:20px; height:20px; padding:2px; color:var(--text-muted);" title="Reset Default"><i data-lucide="trash-2" size="12"></i></button>
+                        </div>
                         <button onclick="openLlmModal('flux')" class="btn-small" style="width: auto; padding: 4px 8px; font-size: 10px; border-color: var(--accent-primary); color: var(--accent-primary);"><i data-lucide="bot" size="10" style="margin-right:4px;"></i>MAGIC PROMPT</button>
                    </div>
-                    <textarea id="flux_prompt" rows="3">A cinematic shot of a futuristic cyberpunk street, neon lights, rain, highly detailed, 8k, photorealistic, masterpiece</textarea>
+                    <textarea id="flux_prompt" rows="3" oninput="savePrompt('flux')">A cinematic shot of a futuristic cyberpunk street, neon lights, rain, highly detailed, 8k, photorealistic, masterpiece</textarea>
                     <button onclick="openLoraModal('flux')" class="btn-small dashed">+ ADD LORA</button>
                 </div>
                 <div class="glass-box">
@@ -263,10 +269,13 @@
 
                 <div class="col" style="margin-bottom: 20px;">
                     <div class="row" style="justify-content:space-between; margin-bottom: 5px;">
-                        <label><i data-lucide="sparkles" size="12"></i> Prompt</label>
+                        <div style="display:flex; align-items:center; gap:8px;">
+                            <label style="margin:0;"><i data-lucide="sparkles" size="12"></i> Prompt</label>
+                            <button onclick="resetPrompt('qwen')" class="btn-icon" style="width:20px; height:20px; padding:2px; color:var(--text-muted);" title="Reset Default"><i data-lucide="trash-2" size="12"></i></button>
+                        </div>
                         <button onclick="openLlmModal('qwen')" class="btn-small" style="width: auto; padding: 4px 8px; font-size: 10px; border-color: var(--accent-primary); color: var(--accent-primary);"><i data-lucide="bot" size="10" style="margin-right:4px;"></i>MAGIC PROMPT</button>
                     </div>
-                    <textarea id="qwen_prompt" rows="3">A high quality photo of a futuristic city skyline, flying cars, neon lights, 8k uhd, cinematic lighting</textarea>
+                    <textarea id="qwen_prompt" rows="3" oninput="savePrompt('qwen')">A high quality photo of a futuristic city skyline, flying cars, neon lights, 8k uhd, cinematic lighting</textarea>
                     <button onclick="openLoraModal('qwen')" class="btn-small dashed">+ ADD LORA</button>
                     <label><i data-lucide="shield-off" size="12"></i> Negative</label>
                     <textarea id="qwen_neg" style="min-height: 50px;">bad quality, blur, watermark</textarea>
@@ -375,8 +384,11 @@
                     </div>
 
                     <div class="col" style="margin-top:10px;">
-                        <label><i data-lucide="sparkles" size="12"></i> Prompt</label>
-                        <textarea id="inp_prompt" rows="2" placeholder="Describe changes...">original</textarea>
+                        <div class="row" style="justify-content:space-between; margin-bottom:5px;">
+                            <label style="margin:0;"><i data-lucide="sparkles" size="12"></i> Prompt</label>
+                            <button onclick="resetPrompt('inp')" class="btn-icon" style="width:24px;height:24px;padding:2px; color:var(--text-muted);" title="Reset Default"><i data-lucide="trash-2" size="14"></i></button>
+                        </div>
+                        <textarea id="inp_prompt" rows="2" placeholder="Describe changes..." oninput="savePrompt('inp')">original</textarea>
                         <label><i data-lucide="shield-off" size="12"></i> Negative</label>
                         <textarea id="inp_neg" rows="1" style="min-height:35px;">bad quality, blur</textarea>
                     </div>

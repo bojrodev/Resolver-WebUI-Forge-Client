@@ -2,6 +2,14 @@
 // UI INTERACTION & SETTINGS
 // -----------------------------------------------------------
 
+// Default Prompts Configuration
+const DEFAULT_PROMPTS = {
+    'xl': "1girl, hand fan, solo, black hair, long hair, jewelry, earrings, holding, chinese clothes, hair ornament, holding fan, red nails, looking at viewer, upper body, long sleeves, red lips, folding fan, smoke, hanfu, nail polish, masterpiece, best quality",
+    'flux': "textured chalk pastel for subtle highlights, delicate charcoal shading for depth and contrast, warm, earthy color palette with ambient lighting casting soft shadows, A young woman with expressive, natural eyes and a gentle smile, soft oil brushwork adding warmth and depth to her skin, her small cat sitting calmly beside her, cozy and slightly messy living room in the background with books scattered, a warm throw blanket casually draped over the couch, city lights visible through a large window showing the urban landscape at night,",
+    'qwen': "a man wearing sun glasses as captain of the guards stands in full regalia, exuding authority and experience. His striking eyes command attention, contrasting with his chestnut curly hair. The bear crest on his armor symbolizes his strength and loyalty. This vivid portrayal, whether a painting or photograph, captures the essence of a formidable and respected knight in exquisite detail and quality",
+    'inp': "original"
+};
+
 window.toggleTheme = function() {
     const root = document.documentElement;
     if (root.getAttribute('data-theme') === 'light') {
@@ -34,7 +42,6 @@ window.switchTab = function(view) {
         if (savedSampler) {
             // Restore saved user preference
             if (inpSamplerEl.value !== savedSampler) {
-                // Check if the option exists before setting it
                 const optionExists = Array.from(inpSamplerEl.options).some(o => o.value === savedSampler);
                 if (optionExists) inpSamplerEl.value = savedSampler;
             }
@@ -132,11 +139,39 @@ window.saveSelection = function(key) {
     else if (key === 'flux_bits') localStorage.setItem('bojro_flux_bits', document.getElementById('flux_bits').value);
     else if (key === 'inp_content') localStorage.setItem('bojro_inp_content', document.getElementById('inp_content').value);
     else if (key === 'inp_padding') localStorage.setItem('bojro_inp_padding', document.getElementById('inp_padding').value);
-    // NEW: Save Inpaint Sampler
     else if (key === 'inp_sampler') localStorage.setItem('bojro_inp_sampler', document.getElementById('inp_sampler').value);
     // --- NEO HOOK: SAVE QWEN ---
     else if (key === 'qwen') localStorage.setItem('bojroModel_qwen', document.getElementById('qwen_modelSelect').value);
     else if (key === 'qwen_bits') localStorage.setItem('bojro_qwen_bits', document.getElementById('qwen_bits').value);
+}
+
+// --- PROMPT SAVING SYSTEM ---
+
+window.savePrompt = function(mode) {
+    const el = document.getElementById(`${mode}_prompt`);
+    if (el) {
+        localStorage.setItem(`bojro_prompt_${mode}`, el.value);
+    }
+}
+
+window.resetPrompt = function(mode) {
+    if (confirm("Reset prompt to default?")) {
+        const el = document.getElementById(`${mode}_prompt`);
+        if (el) {
+            el.value = DEFAULT_PROMPTS[mode] || "";
+            savePrompt(mode); // Save the reset state immediately
+        }
+    }
+}
+
+window.loadSavedPrompts = function() {
+    ['xl', 'flux', 'qwen', 'inp'].forEach(mode => {
+        const saved = localStorage.getItem(`bojro_prompt_${mode}`);
+        const el = document.getElementById(`${mode}_prompt`);
+        if (el && saved !== null) {
+            el.value = saved;
+        }
+    });
 }
 
 window.saveTrident = function() {
