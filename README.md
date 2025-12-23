@@ -5,37 +5,9 @@
 ![Backend](https://img.shields.io/badge/Backend-Forge%20Neo-blue)
 ![License](https://img.shields.io/badge/License-GPLv3-red.svg)
 
-**Resolver** is the ultimate **native Android interface** for [Stable Diffusion WebUI Forge Neo](https://github.com/Haoming02/sd-webui-forge-classic/tree/neo).
+**Resolver** is a high-performance, native Android interface for [Stable Diffusion WebUI Forge Neo](https://github.com/Haoming02/sd-webui-forge-classic/tree/neo). 
 
-Unlike standard browser wrappers, Resolver utilizes **Native Android Foreground Services** and Wake Locks. This ensures your image generation queue continues processing background tasks (batch generations, huge Flux GGUF workflows) even when your phone screen is off or the app is minimized.
-
-> **✨ Major Update (v1.1):** Now supporting **Flux GGUF**, **SDXL**, and **Qwen (Z-Image Turbo)** pipelines with a dedicated LoRA Management System and Local LLM integration.
-
----
-
-## 🚀 Key Features
-
-### ⚡ Power & Performance
-* **True Background Service:** Runs a native Java Foreground Service to keep the WebSocket connection alive. Your long batch queues won't die when your phone sleeps.
-* **Hybrid Architecture:** Built with Capacitor 6.0, combining the fluidity of Vanilla JS with native Android file system and networking capabilities.
-
-### 🎨 Advanced Model Support
-* **Flux GGUF Optimized:** Dedicated UI for Flux including selectors for **VAE, CLIP, T5**, and specific **Quantization Bits** (bnb-nf4, fp8-e4m3fn, etc.).
-* **Qwen / Z-Image Turbo:** New "Turbo Generate" mode specifically tuned for Qwen models with specialized sampler overrides (LCM/Normal).
-* **SDXL Powerhouse:** Full control over SDXL sampling, scheduling, and resolution with aspect ratio locking.
-
-### 🧠 Smart Features
-* **Neo Bridge LoRA Manager:**
-    * **Smart Thumbnails:** Automatically fetches and caches preview images locally.
-    * **Folder Management:** Browse by folder and "Heart" favorites for quick access via the filter bar.
-    * **Config Injection:** Set preferred weights and trigger words that auto-inject into your prompt.
-* **Magic Prompt (LLM Integration):** Connect to a local LLM (like LM Studio or Ollama) to expand simple ideas into complex, detailed prompts within the app.
-* **Mobile Inpainting:** Full canvas editor with Draw/Erase, Soft Inpaint, Mask Blur, and Denoising strength sliders. Touch-optimized.
-
-### 📂 Workflow & Gallery
-* **Batch Queue:** Drag-and-drop queue management (Ongoing, Next, Completed).
-* **Metadata Analyzer:** Built-in PNG Info reader. One-tap "Use in Flux" or "Use in SDXL" to copy parameters from history.
-* **Local Storage:** Saves high-res images directly to your Android device's Documents folder.
+Unlike standard browser wrappers, Resolver is built with a **Hybrid Architecture** (Capacitor 6.0 + Vanilla JS) and utilizes **Native Android Foreground Services** to ensure your generation queues never die in the background.
 
 ---
 
@@ -68,67 +40,75 @@ Unlike standard browser wrappers, Resolver utilizes **Native Android Foreground 
 
 ---
 
-## 🔌 The "Power Button" Feature
+## 🚀 Key Features
 
-Resolver includes a remote wake feature, allowing you to turn on your web-ui directly from the app header.
+### ⚡ True Background Generation
+* **Native Foreground Service:** Uses a Java-based service and Wake Locks to keep WebSocket connections alive during long Flux GGUF workflows or massive batch queues, even when the screen is off.
+* **Queue Persistence:** Features a robust state management system for Ongoing, Next, and Completed jobs.
 
-**⚠️ Requirement:** This feature requires a lightweight helper application running on your PC.
+### 🎨 Advanced Generation Engines
+* **Flux GGUF Optimized:** Includes dedicated selectors for VAE, CLIP, and T5-XXL models, with support for specific quantization bits (bnb-nf4, fp8-e4m3fn, etc.).
+* **Qwen / Z-Image Turbo:** Specialized "Turbo Generate" mode for Qwen models with dense narrative support.
+* **SDXL Powerhouse:** Full control over sampling, scheduling, and aspect ratio locking.
+* **Mobile Inpainting:** A touch-optimized canvas editor with mask blurring, soft inpainting, and denoising controls.
 
-**How to set it up:**
-
-1.  **Download the Helper:** Go to the [Releases Page](#) and download `BojroPowerv2portable.exe`.
-2.  **Run on PC:** Execute the file on the PC where WebUI Forge is installed. It will act as a listener for the mobile signal.
-3.  **Configure App:**
-    * Open Resolver on your Android device.
-    * Tap the **Settings Gear** icon next to the Power Button (ტ) in the header.
-    * Enter the Local IP address shown in the helper app console (e.g., `http://192.168.1.5:5000`).
-    * Click **Save**.
-4.  **Usage:** Simply tap the Power Button in the app header to send a start signal to your PC.
-
----
-
-## 🛠️ Installation & Setup
-
-### 1. Install "Forge Neo" or "forge WebUi" (PC)
-
-### 2. Install Resolver (Android)
-* Download the latest `.apk` from the **[Releases Page](#)**.
-* Install on your Android device.
-
-### 3. Link the App
-1.  Ensure your phone and PC are on the same Wi-Fi network.
-2.  Open Resolver.
-3.  Enter your PC's Local IP address (e.g., `http://192.168.1.10:7860`).
-4.  Tap **LINK**. The status dot will turn **Green**.
+### 🧠 Magic Prompt (Local LLM)
+* **Smart Expansion:** Integrates with local LLM servers (LM Studio, Ollama) to translate simple ideas into professional prompts.
+* **Recommended Model:** For best results, use **[Bojro PromptMaster Abliterated 8B](https://huggingface.co/bojrodev/BojroPromptMasterAbliterated-8B)**. It is specifically fine-tuned for the system prompts used in this app.
+* **Dynamic Mode Switching:** Automatically applies specialized system prompts for SDXL, Flux, and Qwen narratives.
 
 ---
 
 ## 🤖 Magic Prompt (LLM) Setup
 
-To use the "Magic Prompt" feature to auto-expand your prompts:
+To use the "Magic Prompt" feature, it is highly recommended to host the **Bojro PromptMaster** model on your PC.
 
-1.  Run a local LLM server (e.g., **LM Studio** or **Ollama**).
-2.  Ensure it is serving on a local IP (e.g., `http://192.168.1.10:1234`).
-3.  In Resolver, tap the **Bot Icon** next to the prompt box.
-4.  Open the settings panel inside the modal.
-5.  Enter your LLM Server URL and tap **Connect**.
-6.  Select your model and start generating prompts!
+1.  **Download the Model:** Get the GGUF version from [Hugging Face](https://huggingface.co/bojrodev/BojroPromptMasterAbliterated-8B).
+2.  **Run Server:** Load the model into **LM Studio** or **Ollama** and ensure it is serving on your local network (e.g., `http://192.168.1.10:1234`).
+3.  **Connect App:**
+    * In Resolver, tap the **Bot Icon** to open the Magic Prompt modal.
+    * Enter your LLM Server URL and tap **Connect**.
+    * The app will automatically use specialized system instructions for each image generation mode.
 
 ---
 
-## 💻 Building from Source
+## 🔌 Remote PC Wake (The Power Button)
 
-If you want to modify the code or contribute:
+Resolver features a remote power signal to start your WebUI directly from the app header.
 
+**Requirement:** Requires the `BojroPowerv2portable.exe` helper running on your PC.
+
+1.  **Run Helper:** Execute the helper app on your PC.
+2.  **Configure:** Tap the **Settings Gear** next to the Power Button (ტ) in Resolver and enter the PC's Local IP.
+3.  **Wake:** Tap the Power Button to send a start signal and launch your services remotely.
+
+---
+
+## 📂 Workflow & LoRA Management
+* **Neo Bridge:** Browse LoRAs by folder with smart thumbnail caching.
+* **Config Injection:** Set preferred weights and trigger words that auto-inject into your prompts.
+* **Metadata Analysis:** Built-in PNG Info reader with one-tap "Copy to Mode" functionality to restore parameters from history.
+
+---
+
+## 🛠️ Installation & Building
+
+### Installation
+1.  Install **WebUI Forge (Neo)** on your PC.
+2.  Download the latest `.apk` from the **Releases Page**.
+3.  Ensure your phone and PC are on the same Wi-Fi.
+4.  Enter your PC's IP and tap **LINK**.
+
+### Building from Source
 ```bash
 # Clone the repository
-git clone [https://github.com/bojrodev/webui-forge-android-webapp.git](https://github.com/bojrodev/webui-forge-android-webapp.git)
+git clone [https://github.com/bojrodev/Resolver-WebUI-Forge-Client.git](https://github.com/bojrodev/Resolver-WebUI-Forge-Client.git)
 
-# Install NPM dependencies
+# Install dependencies
 npm install
 
-# Sync Capacitor with Android project
+# Sync and open Android project
 npx cap sync
-
+npx cap open android
 # Open the Android Project in Android Studio
 npx cap open android
