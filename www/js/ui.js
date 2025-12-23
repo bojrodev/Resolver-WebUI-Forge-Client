@@ -2,6 +2,14 @@
 // UI INTERACTION & SETTINGS
 // -----------------------------------------------------------
 
+// Default Prompts Configuration
+const DEFAULT_PROMPTS = {
+    'xl': "1girl, hand fan, solo, black hair, long hair, jewelry, earrings, holding, chinese clothes, hair ornament, holding fan, red nails, looking at viewer, upper body, long sleeves, red lips, folding fan, smoke, hanfu, nail polish, masterpiece, best quality",
+    'flux': "textured chalk pastel for subtle highlights, delicate charcoal shading for depth and contrast, warm, earthy color palette with ambient lighting casting soft shadows, A young woman with expressive, natural eyes and a gentle smile, soft oil brushwork adding warmth and depth to her skin, her small cat sitting calmly beside her, cozy and slightly messy living room in the background with books scattered, a warm throw blanket casually draped over the couch, city lights visible through a large window showing the urban landscape at night,",
+    'qwen': "a man wearing sun glasses as captain of the guards stands in full regalia, exuding authority and experience. His striking eyes command attention, contrasting with his chestnut curly hair. The bear crest on his armor symbolizes his strength and loyalty. This vivid portrayal, whether a painting or photograph, captures the essence of a formidable and respected knight in exquisite detail and quality",
+    'inp': "original"
+};
+
 window.toggleTheme = function() {
     const root = document.documentElement;
     if (root.getAttribute('data-theme') === 'light') {
@@ -26,6 +34,26 @@ window.switchTab = function(view) {
     if (view === 'inp') {
         items[1].classList.add('active');
         currentTask = 'inp';
+        
+        // --- FIX: ENFORCE INPAINT SAMPLER DEFAULT ---
+        const inpSamplerEl = document.getElementById('inp_sampler');
+        const savedSampler = localStorage.getItem('bojro_inp_sampler');
+        
+        if (savedSampler) {
+            // Restore saved user preference
+            if (inpSamplerEl.value !== savedSampler) {
+                const optionExists = Array.from(inpSamplerEl.options).some(o => o.value === savedSampler);
+                if (optionExists) inpSamplerEl.value = savedSampler;
+            }
+        } else {
+            // No save found -> Enforce Default: DPM++ 2M SDE
+            const targetDefault = "DPM++ 2M SDE";
+            const optionExists = Array.from(inpSamplerEl.options).some(o => o.value === targetDefault);
+            if (optionExists && inpSamplerEl.value !== targetDefault) {
+                inpSamplerEl.value = targetDefault;
+                localStorage.setItem('bojro_inp_sampler', targetDefault); // Save it as new default
+            }
+        }
     }
     if (view === 'que') {
         items[2].classList.add('active');
@@ -109,9 +137,41 @@ window.saveSelection = function(key) {
     else if (key === 'flux') localStorage.setItem('bojroModel_flux', document.getElementById('flux_modelSelect').value);
     else if (key === 'inp') localStorage.setItem('bojroModel_inp', document.getElementById('inp_modelSelect').value);
     else if (key === 'flux_bits') localStorage.setItem('bojro_flux_bits', document.getElementById('flux_bits').value);
+    else if (key === 'inp_content') localStorage.setItem('bojro_inp_content', document.getElementById('inp_content').value);
+    else if (key === 'inp_padding') localStorage.setItem('bojro_inp_padding', document.getElementById('inp_padding').value);
+    else if (key === 'inp_sampler') localStorage.setItem('bojro_inp_sampler', document.getElementById('inp_sampler').value);
     // --- NEO HOOK: SAVE QWEN ---
     else if (key === 'qwen') localStorage.setItem('bojroModel_qwen', document.getElementById('qwen_modelSelect').value);
     else if (key === 'qwen_bits') localStorage.setItem('bojro_qwen_bits', document.getElementById('qwen_bits').value);
+}
+
+// --- PROMPT SAVING SYSTEM ---
+
+window.savePrompt = function(mode) {
+    const el = document.getElementById(`${mode}_prompt`);
+    if (el) {
+        localStorage.setItem(`bojro_prompt_${mode}`, el.value);
+    }
+}
+
+window.resetPrompt = function(mode) {
+    if (confirm("Reset prompt to default?")) {
+        const el = document.getElementById(`${mode}_prompt`);
+        if (el) {
+            el.value = DEFAULT_PROMPTS[mode] || "";
+            savePrompt(mode); // Save the reset state immediately
+        }
+    }
+}
+
+window.loadSavedPrompts = function() {
+    ['xl', 'flux', 'qwen', 'inp'].forEach(mode => {
+        const saved = localStorage.getItem(`bojro_prompt_${mode}`);
+        const el = document.getElementById(`${mode}_prompt`);
+        if (el && saved !== null) {
+            el.value = saved;
+        }
+    });
 }
 
 window.saveTrident = function() {
@@ -246,16 +306,31 @@ window.savePowerSettings = function() {
 window.openLlmModal = (mode) => {
     activeLlmMode = mode;
     document.getElementById('llmModal').classList.remove('hidden');
+    
     const inputEl = document.getElementById('llmInput');
     const outputEl = document.getElementById('llmOutput');
+    const persistentCheck = document.getElementById('llmPersistentCheck');
+    const resetBtn = document.getElementById('llmResetBtn');
+
+    // Restore mode-specific state
     inputEl.value = llmState[mode].input;
     outputEl.value = llmState[mode].output;
+    persistentCheck.checked = llmState[mode].persistent;
+    
+    // UI Logic: Show reset only if persistent is ON
+    if (llmState[mode].persistent) resetBtn.classList.remove('hidden');
+    else resetBtn.classList.add('hidden');
+
     let savedSys = llmSettings.system_xl;
     if (activeLlmMode === 'flux') savedSys = llmSettings.system_flux;
     else if (activeLlmMode === 'qwen') savedSys = llmSettings.system_qwen;
     document.getElementById('llmSystemPrompt').value = savedSys || "";
+    
     updateLlmButtonState();
     if (!inputEl.value) inputEl.focus();
+    
+    // Refresh icons in modal (Reset button uses refresh-cw)
+    if (typeof lucide !== 'undefined') lucide.createIcons();
 }
 
 window.closeLlmModal = () => document.getElementById('llmModal').classList.add('hidden');
@@ -264,9 +339,34 @@ window.updateLlmState = function() {
     llmState[activeLlmMode].input = document.getElementById('llmInput').value;
 }
 
+// NEW: Toggle Logic
+window.toggleLlmPersistent = function() {
+    const isChecked = document.getElementById('llmPersistentCheck').checked;
+    llmState[activeLlmMode].persistent = isChecked;
+    
+    const resetBtn = document.getElementById('llmResetBtn');
+    if (isChecked) {
+        resetBtn.classList.remove('hidden');
+    } else {
+        resetBtn.classList.add('hidden');
+        // Optional: Clear history when switching off to free memory
+        llmState[activeLlmMode].history = []; 
+    }
+}
+
+// NEW: Reset Logic (Clear current mode's history array)
+window.resetLlmHistory = function() {
+    if (confirm("Reset current chat history? All previous context for this mode will be deleted.")) {
+        llmState[activeLlmMode].history = [];
+        if (Toast) Toast.show({ text: 'Context Reset', duration: 'short' });
+    }
+}
+
 function updateLlmButtonState() {
     const hasOutput = llmState[activeLlmMode].output.trim().length > 0;
-    document.getElementById('llmGenerateBtn').innerText = hasOutput ? "ITERATE" : "GENERATE PROMPT";
+    const isPersistent = llmState[activeLlmMode].persistent;
+    // Iterate sounds better for persistent chat
+    document.getElementById('llmGenerateBtn').innerText = (isPersistent && hasOutput) ? "ITERATE" : "GENERATE PROMPT";
 }
 
 function loadLlmSettings() {

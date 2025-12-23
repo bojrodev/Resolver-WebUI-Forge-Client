@@ -48,13 +48,16 @@ function buildJobFromUI() {
             payload.mask = cleanMask;
             payload.inpainting_mask_invert = 0;
 
-            // explicitly set inpainting_fill to 1 (Original) as default logic
-            payload.inpainting_fill = 1;
+            // NEW LOGIC: Get the fill mode from UI (Default to 1: Original if error)
+            // 0=fill, 1=original, 2=latent noise, 3=latent nothing
+            const contentMode = parseInt(document.getElementById('inp_content').value);
+            payload.inpainting_fill = isNaN(contentMode) ? 1 : contentMode;
 
             if (currentInpaintMode === 'mask') {
                 // Masked Only Mode
                 payload.inpaint_full_res = true;
-                payload.inpaint_full_res_padding = 32;
+                // Get padding from UI, default to 32 if parsing fails
+                payload.inpaint_full_res_padding = parseInt(document.getElementById('inp_padding').value) || 32;
             } else {
                 // Whole Picture Mode
                 payload.inpaint_full_res = false;
