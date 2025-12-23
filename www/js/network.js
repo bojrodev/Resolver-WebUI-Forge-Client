@@ -4,7 +4,10 @@
 
 function loadHostIp() {
     // Load from new centralized config first
-    loadConnectionConfig();
+    if (typeof loadConnectionConfig === 'function') {
+        loadConnectionConfig();
+    }
+    
     if (connectionConfig.baseIp) {
         HOST = buildWebUIUrl();
         // Update legacy field for backward compatibility if it exists
@@ -29,6 +32,9 @@ window.connect = async function(silent = false) {
         const legacyField = document.getElementById('hostIp');
         if (legacyField) {
             HOST = legacyField.value.replace(/\/$/, "");
+        } else if (localStorage.getItem('bojroHostIp')) {
+            // Fallback to memory if input is missing
+            HOST = localStorage.getItem('bojroHostIp');
         }
     }
     
@@ -37,8 +43,10 @@ window.connect = async function(silent = false) {
 
     try {
         if (LocalNotifications && !silent) {
-            const perm = await LocalNotifications.requestPermissions();
-            if (perm.display === 'granted') await createNotificationChannel();
+            try {
+                const perm = await LocalNotifications.requestPermissions();
+                if (perm.display === 'granted') await createNotificationChannel();
+            } catch(e) { console.warn("Notif perm failed", e); }
         }
 
         const res = await fetch(`${HOST}/sdapi/v1/sd-models`, {
@@ -46,13 +54,16 @@ window.connect = async function(silent = false) {
         });
         if (!res.ok) throw new Error("Status " + res.status);
 
-        dot.style.background = "#00e676";
-        dot.classList.add('on');
+        if (dot) {
+            dot.style.background = "#00e676";
+            dot.classList.add('on');
+        }
+        
         localStorage.setItem('bojroHostIp', HOST);
-        document.getElementById('genBtn').disabled = false;
+        const genBtn = document.getElementById('genBtn');
+        if(genBtn) genBtn.disabled = false;
 
         // MODIFIED: Fetch everything EXCEPT LoRAs (Lazy load them)
-        // fetchLoras();  <-- Commented out to prevent startup freeze
         await Promise.all([fetchModels(), fetchSamplers(), fetchVaes()]);
 
         if (!silent)
@@ -62,7 +73,7 @@ window.connect = async function(silent = false) {
                 position: 'center'
             });
     } catch (e) {
-        dot.style.background = "#f44336";
+        if (dot) dot.style.background = "#f44336";
         if (!silent) alert("Failed: " + e.message);
     }
 }
@@ -73,20 +84,34 @@ async function fetchModels() {
             headers: getHeaders()
         });
         const data = await res.json();
-        const selXL = document.getElementById('xl_modelSelect');
-        selXL.innerHTML = "";
-        const selFlux = document.getElementById('flux_modelSelect');
-        selFlux.innerHTML = "";
-        const selInp = document.getElementById('inp_modelSelect');
-        selInp.innerHTML = "";
+        
+        // Helper to safely populate
+        const safePopulate = (id, list) => {
+            const el = document.getElementById(id);
+            if(el) {
+                el.innerHTML = "";
+                list.forEach(item => el.appendChild(item));
+            }
+        };
+
+        const optsXL = [];
+        const optsFlux = [];
+        const optsInp = [];
+
         data.forEach(m => {
-            selXL.appendChild(new Option(m.model_name, m.title));
-            selFlux.appendChild(new Option(m.model_name, m.title));
-            selInp.appendChild(new Option(m.model_name, m.title));
+            optsXL.push(new Option(m.model_name, m.title));
+            optsFlux.push(new Option(m.model_name, m.title));
+            optsInp.push(new Option(m.model_name, m.title));
         });
+
+        safePopulate('xl_modelSelect', optsXL);
+        safePopulate('flux_modelSelect', optsFlux);
+        safePopulate('inp_modelSelect', optsInp);
+
         ['xl', 'flux', 'inp'].forEach(mode => {
             const saved = localStorage.getItem('bojroModel_' + mode);
-            if (saved) document.getElementById(mode + '_modelSelect').value = saved;
+            const el = document.getElementById(mode + '_modelSelect');
+            if (saved && el) el.value = saved;
         });
 
         // --- NEO HOOK: POPULATE QWEN MODELS ---
@@ -101,19 +126,30 @@ async function fetchSamplers() {
             headers: getHeaders()
         });
         const data = await res.json();
-        const selXL = document.getElementById('xl_sampler');
-        selXL.innerHTML = "";
-        const selFlux = document.getElementById('flux_sampler');
-        selFlux.innerHTML = "";
-        const selInp = document.getElementById('inp_sampler');
-        selInp.innerHTML = "";
+        
+        const optsXL = [];
+        const optsInp = [];
+        const optsFlux = [];
+
         data.forEach(s => {
-            selXL.appendChild(new Option(s.name, s.name));
-            selInp.appendChild(new Option(s.name, s.name));
+            optsXL.push(new Option(s.name, s.name));
+            optsInp.push(new Option(s.name, s.name));
             const opt = new Option(s.name, s.name);
             if (s.name === "Euler") opt.selected = true;
-            selFlux.appendChild(opt);
+            optsFlux.push(opt);
         });
+
+        const safePopulate = (id, list) => {
+            const el = document.getElementById(id);
+            if(el) {
+                el.innerHTML = "";
+                list.forEach(item => el.appendChild(item));
+            }
+        };
+
+        safePopulate('xl_sampler', optsXL);
+        safePopulate('inp_sampler', optsInp);
+        safePopulate('flux_sampler', optsFlux);
 
         // --- NEO HOOK: POPULATE QWEN SAMPLERS ---
         if (window.Neo && window.Neo.populateSamplers) window.Neo.populateSamplers(data);
@@ -122,16 +158,19 @@ async function fetchSamplers() {
 }
 
 async function fetchVaes() {
-    const slots = [document.getElementById('flux_vae'), document.getElementById('flux_clip'), document.getElementById('flux_t5')];
+    // Safe select wrapper
+    const getEl = (id) => document.getElementById(id);
+    const slots = [getEl('flux_vae'), getEl('flux_clip'), getEl('flux_t5')].filter(Boolean);
+    
     slots.forEach(s => s.innerHTML = "<option value='Automatic'>Automatic</option>");
-    let list = [];
+    
     try {
         const res = await fetch(`${HOST}/sdapi/v1/sd-modules`, {
             headers: getHeaders()
         });
         const data = await res.json();
         if (data && data.length) {
-            list = data.map(m => m.model_name);
+            const list = data.map(m => m.model_name);
             slots.forEach(sel => {
                 list.forEach(name => {
                     if (name !== "Automatic" && !Array.from(sel.options).some(o => o.value === name)) sel.appendChild(new Option(name, name));
@@ -141,16 +180,21 @@ async function fetchVaes() {
             if (window.Neo && window.Neo.populateDual) window.Neo.populateDual(list);
         }
     } catch (e) {}
+
     ['flux_vae', 'flux_clip', 'flux_t5'].forEach(id => {
         const saved = localStorage.getItem('bojro_' + id);
-        if (saved && Array.from(document.getElementById(id).options).some(o => o.value === saved)) document.getElementById(id).value = saved;
+        const el = document.getElementById(id);
+        if (saved && el && Array.from(el.options).some(o => o.value === saved)) el.value = saved;
     });
+    
     const savedBits = localStorage.getItem('bojro_flux_bits');
-    if (savedBits) document.getElementById('flux_bits').value = savedBits;
+    const elBits = document.getElementById('flux_bits');
+    if (savedBits && elBits) elBits.value = savedBits;
 
     // --- NEO HOOK: RESTORE QWEN BITS ---
     const savedQwenBits = localStorage.getItem('bojro_qwen_bits');
-    if (savedQwenBits && document.getElementById('qwen_bits')) document.getElementById('qwen_bits').value = savedQwenBits;
+    const elQwenBits = document.getElementById('qwen_bits');
+    if (savedQwenBits && elQwenBits) elQwenBits.value = savedQwenBits;
 }
 
 // Helper needed for the Smart Bridge (Neo/LoRA)
@@ -208,39 +252,71 @@ function normalize(str) {
 
 // --- LLM API COMMUNICATION ---
 
+// Helper to resolve settings from DOM or Memory
+function getLlmConfig() {
+    let baseUrl = "";
+    let key = "";
+    let model = "";
+
+    // 1. Base URL
+    if (connectionConfig && connectionConfig.baseIp) {
+        baseUrl = buildLlmUrl();
+    } else if (document.getElementById('llmApiBase')) {
+        baseUrl = document.getElementById('llmApiBase').value.replace(/\/$/, "");
+    } else if (llmSettings && llmSettings.baseUrl) {
+        baseUrl = llmSettings.baseUrl;
+    }
+
+    // 2. API Key
+    if (document.getElementById('llmApiKey')) {
+        key = document.getElementById('llmApiKey').value;
+    } else if (llmSettings && llmSettings.key) {
+        key = llmSettings.key;
+    }
+
+    // 3. Model
+    if (document.getElementById('llmModelSelect')) {
+        model = document.getElementById('llmModelSelect').value;
+    } else if (llmSettings && llmSettings.model) {
+        model = llmSettings.model;
+    }
+
+    return { baseUrl, key, model };
+}
+
 window.connectToLlm = async function() {
     if (!CapacitorHttp) return alert("Native HTTP Plugin not loaded! Rebuild App.");
     
-    // Use centralized configuration if available, otherwise fallback to legacy fields
-    let baseUrl;
-    if (connectionConfig.baseIp) {
-        baseUrl = buildLlmUrl();
-    } else {
-        baseUrl = document.getElementById('llmApiBase').value.replace(/\/$/, "");
-    }
+    const { baseUrl, key } = getLlmConfig();
     
-    const key = document.getElementById('llmApiKey').value;
     if (!baseUrl) return alert("Enter Server URL first");
 
-    const btn = event.target;
-    const originalText = btn.innerText;
-    btn.innerText = "...";
-    btn.disabled = true;
+    // Try to find the button, but don't crash if missing
+    const btn = event ? event.target : null;
+    let originalText = "";
+    if (btn) {
+        originalText = btn.innerText;
+        btn.innerText = "...";
+        btn.disabled = true;
+    }
 
     try {
         const headers = {
             'Content-Type': 'application/json'
         };
         if (key) headers['Authorization'] = `Bearer ${key}`;
+        
         const response = await CapacitorHttp.get({
             url: `${baseUrl}/v1/models`,
             headers: headers
         });
+        
         const data = response.data;
         if (response.status >= 400) throw new Error(`HTTP ${response.status}`);
+        
         const select = document.getElementById('llmModelSelect');
-        select.innerHTML = "";
-        if (data.data && Array.isArray(data.data)) {
+        if (select && data.data && Array.isArray(data.data)) {
+            select.innerHTML = "";
             data.data.forEach(m => {
                 select.appendChild(new Option(m.id, m.id));
             });
@@ -248,72 +324,71 @@ window.connectToLlm = async function() {
                 text: `Found ${data.data.length} models`,
                 duration: 'short'
             });
-        } else {
+        } else if (!data.data) {
             throw new Error("Invalid model format");
         }
-        document.getElementById('llmApiBase').value = baseUrl;
-        saveLlmGlobalSettings();
+
+        // Update global settings
+        if (typeof saveLlmGlobalSettings === 'function') saveLlmGlobalSettings();
+
     } catch (e) {
         alert("Link Error: " + (e.message || JSON.stringify(e)));
     } finally {
-        btn.innerText = originalText;
-        btn.disabled = false;
+        if (btn) {
+            btn.innerText = originalText;
+            btn.disabled = false;
+        }
     }
 }
 
 window.generateLlmPrompt = async function() {
     if (!CapacitorHttp) return alert("Native HTTP Plugin not loaded!");
+    
     const btn = document.getElementById('llmGenerateBtn');
-    const inputVal = document.getElementById('llmInput').value;
+    const inputEl = document.getElementById('llmInput');
+    const sysEl = document.getElementById('llmSystemPrompt');
+    const outputEl = document.getElementById('llmOutput');
     
-    // Use centralized configuration first, fallback to legacy
-    let baseUrl;
-    if (connectionConfig.baseIp) {
-        baseUrl = buildLlmUrl();
-    } else {
-        baseUrl = document.getElementById('llmApiBase') ? document.getElementById('llmApiBase').value.replace(/\/$/, "") : '';
-    }
+    if (!inputEl) return; 
+
+    const inputVal = inputEl.value;
+    const { baseUrl, key, model } = getLlmConfig();
     
-    const model = document.getElementById('llmModelSelect').value;
     if (!inputVal) return alert("Please enter an idea!");
     if (!baseUrl) return alert("Please connect to server first!");
 
-    btn.disabled = true;
-    btn.innerText = "GENERATING...";
-    const sysPrompt = document.getElementById('llmSystemPrompt').value;
-    // --- NEO HOOK: QWEN PROMPT CONTEXT ---
-    const contextMode = activeLlmMode === 'qwen' ? 'Qwen/Turbo' : (activeLlmMode === 'xl' ? 'Sdxl' : 'Flux');
-    const promptTemplate = `1.Prompt(natural language): ${inputVal} Model: ${contextMode}`;
+    if(btn) {
+        btn.disabled = true;
+        btn.innerText = "GENERATING...";
+    }
 
+    const sysPrompt = sysEl ? sysEl.value : "";
+    
     try {
         const payload = {
-    model: model || "default",
-    messages: [
-        {
-            role: "system",
-            content: sysPrompt // Your 2k token prompt
-        }, 
-        {
-            role: "user",
-            content: inputVal
-        }
-    ],
-    temperature: 0.7,      // Keeps output focused on instructions
-    max_tokens: 250,       // Limits output to ~150-180 words max
-    top_p: 0.9,            // Standard diversity setting
-    frequency_penalty: 0.5, // Helps prevent the "repetitive loops" you saw
-    stream: false
-};
-        const headers = {
-            'Content-Type': 'application/json'
+            model: model || "default",
+            messages: [
+                { role: "system", content: sysPrompt }, 
+                { role: "user", content: inputVal }
+            ],
+            temperature: 0.7,
+            max_tokens: 250,
+            top_p: 0.9,
+            frequency_penalty: 0.5,
+            stream: false
         };
-        if (llmSettings.key) headers['Authorization'] = `Bearer ${llmSettings.key}`;
+        
+        const headers = { 'Content-Type': 'application/json' };
+        if (key) headers['Authorization'] = `Bearer ${key}`;
+        
         const response = await CapacitorHttp.post({
             url: `${baseUrl}/v1/chat/completions`,
             headers: headers,
             data: payload
         });
+        
         if (response.status >= 400) throw new Error(`HTTP ${response.status}`);
+        
         const data = response.data;
         let result = "";
         if (data.choices && data.choices[0] && data.choices[0].message) {
@@ -321,9 +396,15 @@ window.generateLlmPrompt = async function() {
         } else if (data.response) {
             result = data.response;
         }
-        document.getElementById('llmOutput').value = result;
-        llmState[activeLlmMode].output = result;
-        updateLlmButtonState();
+        
+        if(outputEl) outputEl.value = result;
+        
+        if (llmState && activeLlmMode) {
+            llmState[activeLlmMode].output = result;
+        }
+        
+        if (typeof updateLlmButtonState === 'function') updateLlmButtonState();
+        
         if (Toast) Toast.show({
             text: 'Prompt Generated!',
             duration: 'short'
@@ -331,8 +412,8 @@ window.generateLlmPrompt = async function() {
     } catch (e) {
         alert("Generation failed: " + (e.message || JSON.stringify(e)));
     } finally {
-        btn.disabled = false;
-        updateLlmButtonState();
+        if(btn) btn.disabled = false;
+        if (typeof updateLlmButtonState === 'function') updateLlmButtonState();
     }
 }
 
@@ -349,12 +430,12 @@ window.sendPowerSignal = async function() {
 
     if (!serverUrl) {
         alert("Please set the PC Server IP in settings first!");
-        togglePowerSettings();
+        if (typeof togglePowerSettings === 'function') togglePowerSettings();
         return;
     }
 
-    // Visual Feedback
-    btn.classList.add('active');
+    if(btn) btn.classList.add('active');
+    
     if (Toast) Toast.show({
         text: 'Sending Wake Signal...',
         duration: 'short'
@@ -363,7 +444,6 @@ window.sendPowerSignal = async function() {
     try {
         const targetUrl = `${serverUrl}/power`;
 
-        // STANDARD FETCH (No-CORS removed to match connect() behavior)
         await fetch(targetUrl, {
             method: 'POST'
         });
@@ -374,17 +454,15 @@ window.sendPowerSignal = async function() {
         });
 
         setTimeout(() => {
-            btn.classList.remove('active');
+            if(btn) btn.classList.remove('active');
         }, 3000);
 
     } catch (error) {
         console.error(error);
-        // Even if it fails (e.g. CORS error but signal sent, or network down),
-        // we display a generic toast because a simple server script might not respond cleanly.
         if (Toast) Toast.show({
             text: 'Signal Sent (Or Check Connection)',
             duration: 'short'
         });
-        btn.classList.remove('active');
+        if(btn) btn.classList.remove('active');
     }
 }

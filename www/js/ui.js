@@ -259,7 +259,9 @@ window.updateWeightDisplay = (val) => document.getElementById('cfgWeightDisplay'
 function loadPowerSettings() {
     const savedIP = localStorage.getItem('bojro_power_ip');
     if (savedIP) {
-        document.getElementById('power-server-ip').value = savedIP;
+        // Safe check in case element is missing
+        const el = document.getElementById('power-server-ip');
+        if(el) el.value = savedIP;
     }
 }
 
@@ -362,31 +364,47 @@ function updateLlmButtonState() {
     document.getElementById('llmGenerateBtn').innerText = (isPersistent && hasOutput) ? "ITERATE" : "GENERATE PROMPT";
 }
 
+// FIX: Safe Loading of LLM Settings
+// This prevents crashing if legacy ID elements (llmApiBase, llmApiKey) are missing from index.html
 function loadLlmSettings() {
     const s = localStorage.getItem('bojroLlmConfig');
     if (s) {
         const loaded = JSON.parse(s);
-        llmSettings = { ...llmSettings,
-            ...loaded
-        };
-        document.getElementById('llmApiBase').value = llmSettings.baseUrl || '';
-        document.getElementById('llmApiKey').value = llmSettings.key || '';
+        llmSettings = { ...llmSettings, ...loaded };
+
+        // Safe checks: Only set value if element exists
+        const elBase = document.getElementById('llmApiBase');
+        if (elBase) elBase.value = llmSettings.baseUrl || '';
+        
+        const elKey = document.getElementById('llmApiKey');
+        if (elKey) elKey.value = llmSettings.key || '';
+
         if (llmSettings.model) {
             const sel = document.getElementById('llmModelSelect');
-            sel.innerHTML = `<option value="${llmSettings.model}">${llmSettings.model}</option>`;
-            sel.value = llmSettings.model;
+            if (sel) {
+                sel.innerHTML = `<option value="${llmSettings.model}">${llmSettings.model}</option>`;
+                sel.value = llmSettings.model;
+            }
         }
     }
 }
 
+// FIX: Safe Saving of LLM Settings
 window.saveLlmGlobalSettings = function() {
-    llmSettings.baseUrl = document.getElementById('llmApiBase').value.replace(/\/$/, "");
-    llmSettings.key = document.getElementById('llmApiKey').value;
-    llmSettings.model = document.getElementById('llmModelSelect').value;
+    const elBase = document.getElementById('llmApiBase');
+    if (elBase) llmSettings.baseUrl = elBase.value.replace(/\/$/, "");
+    
+    const elKey = document.getElementById('llmApiKey');
+    if (elKey) llmSettings.key = elKey.value;
+    
+    const elModel = document.getElementById('llmModelSelect');
+    if (elModel) llmSettings.model = elModel.value;
+
     const sysVal = document.getElementById('llmSystemPrompt').value;
     if (activeLlmMode === 'xl') llmSettings.system_xl = sysVal;
     else if (activeLlmMode === 'flux') llmSettings.system_flux = sysVal;
     else if (activeLlmMode === 'qwen') llmSettings.system_qwen = sysVal;
+    
     localStorage.setItem('bojroLlmConfig', JSON.stringify(llmSettings));
     if (Toast) Toast.show({
         text: 'Settings & Model Saved',
@@ -404,10 +422,13 @@ window.useLlmPrompt = function() {
     else if (activeLlmMode === 'flux') targetId = 'flux_prompt';
     else if (activeLlmMode === 'qwen') targetId = 'qwen_prompt';
 
-    document.getElementById(targetId).value = result;
-    closeLlmModal();
-    if (Toast) Toast.show({
-        text: 'Applied to main prompt!',
-        duration: 'short'
-    });
+    const targetEl = document.getElementById(targetId);
+    if(targetEl) {
+        targetEl.value = result;
+        closeLlmModal();
+        if (Toast) Toast.show({
+            text: 'Applied to main prompt!',
+            duration: 'short'
+        });
+    }
 }
