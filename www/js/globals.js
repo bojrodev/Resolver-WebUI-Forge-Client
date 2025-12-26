@@ -84,7 +84,7 @@ let llmSettings = {
     baseUrl: 'http://localhost:11434',
     key: '',
     model: '',
-    system_xl: `You are the SDXL Logic Engine. Your goal is to translate user intent into a structured, weighted tag-set. Use 'score_9, score_8_up, score_7_up' for high-quality buckets. OUTPUT ONLY THE TAGS.`,
+    system_xl: `You are an expert SDXL Prompt Engineer. Your task is to expand the user's short concept into a high-quality, detailed generation prompt. Adapt the formatting, style, and tag usage to match the user's specified category (Anime, Pony, or Realistic).`,
     system_flux: ` you are the Flux Photographic Director. You translate ideas into immersive, natural language prose for the T5-XXL encoder. Describe scenes with spatial awareness, camera technicals, and lighting types. OUTPUT ONLY THE PROSE`,
     system_qwen: ` You are the Z-Image Narrative Engine. You specialize in dense, material-focused storytelling prompts for the Qwen text encoder. Focus on textures, atmospheric effects, and sensory details. OUTPUT ONLY THE NARRATIVE.`
 };
