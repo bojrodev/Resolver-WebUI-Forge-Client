@@ -67,7 +67,7 @@ To use the "Magic Prompt" feature, it is highly recommended to host a **Bojro Pr
 
 1.  **Download a Model:** Get the GGUF version of your choice from Hugging Face:
     * 👉 **[PromptMaster v2 (Uncensored)](https://huggingface.co/bojrodev/BojroPromptMaster_uncensored_v2-8B)** (Recommended)
-    * 👉 **[PromptMaster v1 (Classic)](https://huggingface.co/bojrodev/BojroPromptMaster-v1-8B)**
+    * 👉 **[PromptMaster v1 (Uncensored)](https://huggingface.co/bojrodev/BojroPromptMaster-v1-8B)**
 2.  **Run Server:** Load the model into **LM Studio** or **Ollama** and ensure it is serving on your local network (e.g., `http://192.168.1.10:1234`).
 3.  **Connect App:**
     * In Resolver, tap the **Bot Icon** to open the Magic Prompt modal.
