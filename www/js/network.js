@@ -259,10 +259,10 @@ window.generateLlmPrompt = async function() {
             content: inputVal
         }
     ],
-    temperature: 0.7,      // Keeps output focused on instructions
-    max_tokens: 250,       // Limits output to ~150-180 words max
+    temperature: 0.8,      // Keeps output focused on instructions
+    max_tokens: 300,       // Limits output to ~150-180 words max
     top_p: 0.9,            // Standard diversity setting
-    frequency_penalty: 0.5, // Helps prevent the "repetitive loops" you saw
+    repetition_penalty: 1.2, // Helps prevent the "repetitive loops" problem
     stream: false
 };
         const headers = {
