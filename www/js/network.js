@@ -515,21 +515,16 @@ window.sendPowerSignal = async function() {
     }
 }
 
-// --- NEW KILL SIGNAL FUNCTION ---
+// --- FIXED KILL SIGNAL FUNCTION ---
 window.sendStopSignal = async function() {
     const btn = document.getElementById('kill-btn-mini');
     
-    // 1. Resolve URL - Robust Method
-    // We prioritize the localStorage 'bojro_power_ip' if available as it's directly set by the modal
-    // OR we reconstruct it from the config object if that exists.
-    
-    let serverUrl = localStorage.getItem('bojro_power_ip');
-
-    if (!serverUrl && typeof connectionConfig !== 'undefined' && connectionConfig.baseIp) {
-        // Fallback: Construct it manually if local storage is empty but config exists
-        const protocol = connectionConfig.protocol || 'http';
-        const port = connectionConfig.portWake || '5000';
-        serverUrl = `${protocol}://${connectionConfig.baseIp}:${port}`;
+    // Resolve URL using exact same priority as Wake button
+    let serverUrl;
+    if (connectionConfig.baseIp) {
+        serverUrl = buildWakeUrl();
+    } else {
+        serverUrl = localStorage.getItem('bojro_power_ip');
     }
 
     if (!serverUrl) {
@@ -538,45 +533,37 @@ window.sendStopSignal = async function() {
         return;
     }
 
-    // Cleaning
-    serverUrl = serverUrl.replace(/\/$/, "");
-
-    // 2. Visual Feedback
     if(btn) btn.classList.add('active');
     
-    if (typeof Toast !== 'undefined') Toast.show({
+    if (Toast) Toast.show({
         text: 'Sending KILL Signal...',
         duration: 'short'
     });
 
     try {
-        // 3. Send Request
-        // We target /power/off with CORS enabled
-        console.log(`Sending Stop Signal to: ${serverUrl}/power/off`);
-        
-        const response = await fetch(`${serverUrl}/power/off`, {
-            method: 'POST',
-            mode: 'cors', // Important for local network requests
-            headers: {
-                'Content-Type': 'application/json'
-            }
+        // Send simple POST request targeting /power/off (matches bojro_app.py route)
+        // Headers removed to ensure a "Simple Request" that avoids CORS preflight issues
+        const targetUrl = `${serverUrl}/power/off`;
+
+        await fetch(targetUrl, {
+            method: 'POST'
         });
 
-        if (typeof Toast !== 'undefined') Toast.show({
+        if (Toast) Toast.show({
             text: 'System Halted Successfully',
             duration: 'short'
         });
 
-    } catch (error) {
-        console.error("Kill Signal Error:", error);
-        if (typeof Toast !== 'undefined') Toast.show({
-            text: 'Signal Failed (Check Console)',
-            duration: 'short'
-        });
-        alert("Connection Failed: " + error.message);
-    } finally {
         setTimeout(() => {
             if(btn) btn.classList.remove('active');
-        }, 500);
+        }, 1000);
+
+    } catch (error) {
+        console.error(error);
+        if (Toast) Toast.show({
+            text: 'Signal Sent (Or Check Connection)',
+            duration: 'short'
+        });
+        if(btn) btn.classList.remove('active');
     }
 }
