@@ -167,6 +167,8 @@ window.loadSavedPrompts = function() {
     });
     // Init High-Res Fix settings
     window.initHr();
+    // NEW: Init Global UI Persistence States
+    window.initGlobalUiState();
 }
 
 window.saveTrident = function() {
@@ -436,18 +438,9 @@ window.useLlmPrompt = function() {
 }
 
 
-// FBc Collapse Toggle
+// FBc Collapse Toggle Wrapper for Generic Logic
 window.toggleFbcSection = function() {
-    const content = document.getElementById('fbc-settings-content');
-    const arrow = document.getElementById('fbc-arrow');
-    
-    if (content.classList.contains('hidden')) {
-        content.classList.remove('hidden');
-        arrow.style.transform = 'rotate(180deg)';
-    } else {
-        content.classList.add('hidden');
-        arrow.style.transform = 'rotate(0deg)';
-    }
+    toggleGeneric('fbc-settings-content', 'fbc-arrow', 'bojro_vis_fbc');
 }
 
 // --- HIGH-RES FIX LOGIC ---
@@ -488,11 +481,32 @@ window.initHr = function() {
         loadVal('cfg', 1.0);
         loadVal('denoise', 0.4);
         loadVal('scale', 1.5);
-        // Upscaler is loaded in network.js fetchUpscalers
+        
+        // NEW: Initialize HR collapse states (Default Closed for HR fix, but persistent)
+        initGenericSectionClosed(`grp-${mode}-hr`, `arr-${mode}-hr`, `bojro_vis_${mode}_hr`);
     });
 }
 
-// --- GENERIC SECTION TOGGLER ---
+// --- GLOBAL UI PERSISTENCE INITIALIZER ---
+
+window.initGlobalUiState = function() {
+    // Checkpoint selector
+    initGenericSection('grp-models', 'arr-models', 'bojro_vis_models');
+    
+    // Generation Params Groups
+    initGenericSection('grp-xl', 'arr-xl', 'bojro_vis_xl');
+    initGenericSection('grp-flux', 'arr-flux', 'bojro_vis_flux');
+    initGenericSection('grp-qwen', 'arr-qwen', 'bojro_vis_qwen');
+    
+    // NEW: Trident (Flux) and Modules (Qwen) persistence
+    initGenericSection('grp-flux-trident', 'arr-flux-trident', 'bojro_vis_flux_trident');
+    initGenericSection('grp-qwen-modules', 'arr-qwen-modules', 'bojro_vis_qwen_modules');
+    
+    // FBC persistence
+    initGenericSection('fbc-settings-content', 'fbc-arrow', 'bojro_vis_fbc');
+}
+
+// --- GENERIC SECTION TOGGLER (PERSISTENT) ---
 
 window.initGenericSectionClosed = function(contentId, arrowId, storageKey) {
     const savedState = localStorage.getItem(storageKey);

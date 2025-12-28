@@ -14,8 +14,7 @@
     
     <script src="js/lucide.js"></script>
     <link rel="stylesheet" href="style.css">
-    
-    </head>
+</head>
 <body>
 
     <div class="container">
@@ -32,11 +31,10 @@
                     <i data-lucide="zap-off"></i> INITIALIZE ENGINE
                 </button>
 
-                <div class="row" style="border-top: 1px solid var(--input-border); border-bottom: 1px solid var(--input-border); padding: 10px 0; margin: 10px 0; justify-content: space-between; align-items: center;">
+                <div class="row" style="border-top: 1px solid var(--border-color); border-bottom: 1px solid var(--border-color); padding: 10px 0; margin: 10px 0; justify-content: space-between; align-items: center;">
                     <label style="margin: 0; color: var(--accent-primary); font-weight: 900;">Use Bojro Dev Power</label>
                     <div class="row" style="width: auto; gap: 10px;">
-                         
-                        <button id="power-btn-mini" onclick="sendPowerSignal()" class="btn-icon" style="width: 36px; height: 36px; padding: 0; color: var(--accent-primary); border: 1px solid var(--input-border);">
+                        <button id="power-btn-mini" onclick="sendPowerSignal()" class="btn-icon" style="width: 36px; height: 36px; padding: 0; color: var(--accent-primary); border: 1px solid var(--border-color);">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width: 18px; height: 18px;">
                                 <path d="M18.36 6.64a9 9 0 1 1-12.73 0"></path>
                                 <line x1="12" y1="2" x2="12" y2="12"></line>
@@ -109,13 +107,13 @@
                     <div class="row" onclick="toggleGeneric('grp-xl-hr', 'arr-xl-hr', 'bojro_vis_xl_hr')" style="justify-content:space-between; cursor:pointer; margin-bottom:5px; align-items:center;">
                         <div class="row" style="width:auto; gap:10px; align-items:center;">
                             <label style="cursor:pointer; margin:0;"><i data-lucide="arrow-up-circle" size="12"></i> Hi-Res Fix</label>
-                            <input type="checkbox" id="xl_hr_enable" style="width:14px; height:14px;" onchange="saveHr('xl'); event.stopPropagation();">
+                            <input type="checkbox" id="xl_hr_enable" class="bojro-switch" onchange="saveHr('xl'); event.stopPropagation();">
                         </div>
                         <i id="arr-xl-hr" data-lucide="chevron-down" size="14" style="transition: transform 0.2s;"></i>
                     </div>
 
                     <div id="grp-xl-hr" class="hidden">
-                        <div class="row" style="justify-content:space-between; margin-bottom:10px; border-bottom:1px solid var(--input-border); padding-bottom:5px;">
+                        <div class="row" style="justify-content:space-between; margin-bottom:10px; border-bottom:1px solid var(--border-color); padding-bottom:5px;">
                             <span style="font-size:10px; color:var(--text-muted);">UPSCALING</span>
                             <button onclick="resetHr('xl')" class="btn-icon" style="color:#f44336;" title="Reset Defaults"><i data-lucide="trash-2" size="12"></i></button>
                         </div>
@@ -189,27 +187,34 @@
                 </div>
 
                 <div class="glass-box">
-                    <div class="col" style="margin-bottom: 15px;">
-                        <label>VAE / Text Encoders</label>
-                        <div class="row mb-5"><span class="label-tag c-p">VAE</span><select id="flux_vae" class="trident-select" onchange="saveTrident()"><option value="">Automatic</option></select></div>
-                        <div class="row mb-5"><span class="label-tag c-s">CLIP</span><select id="flux_clip" class="trident-select" onchange="saveTrident()"><option value="">None</option></select></div>
-                        <div class="row"><span class="label-tag c-m">T5</span><select id="flux_t5" class="trident-select" onchange="saveTrident()"><option value="">None</option></select></div>
+                    <div class="row" onclick="toggleGeneric('grp-flux-trident', 'arr-flux-trident', 'bojro_vis_flux_trident')" style="justify-content:space-between; cursor:pointer; margin-bottom:5px;">
+                        <label style="cursor:pointer;"><i data-lucide="layers-3" size="12"></i> VAE / Text Encoders</label>
+                        <i id="arr-flux-trident" data-lucide="chevron-down" size="14" style="transition: transform 0.2s;"></i>
                     </div>
-                    <div class="col">
-                        <label>Low Bits</label>
-                        <select id="flux_bits" onchange="saveSelection('flux_bits')">
-                            <option value="Automatic (fp16 LoRA)" selected>Automatic (fp16 LoRA)</option>
-                            <option value="Automatic">Automatic</option>
-                            <option value="bnb-nf4">bnb-nf4</option>
-                            <option value="bnb-nf4 (fp16 LoRA)">bnb-nf4 (fp16 LoRA)</option>
-                            <option value="float8-e4m3fn">float8-e4m3fn</option>
-                            <option value="float8-e4m3fn (fp16 LoRA)">float8-e4m3fn (fp16 LoRA)</option>
-                            <option value="bnb-fp4">bnb-fp4</option>
-                            <option value="bnb-fp4 (fp16 LoRA)">bnb-fp4 (fp16 LoRA)</option>
-                            <option value="float8-e5m2">float8-e5m2</option>
-                            <option value="float8-e5m2 (fp16 LoRA)">float8-e5m2 (fp16 LoRA)</option>
-                        </select>
+
+                    <div id="grp-flux-trident">
+                        <div class="col" style="margin-bottom: 15px; margin-top:10px;">
+                            <div class="row mb-5"><span class="label-tag c-p">VAE</span><select id="flux_vae" class="trident-select" onchange="saveTrident()"><option value="">Automatic</option></select></div>
+                            <div class="row mb-5"><span class="label-tag c-s">CLIP</span><select id="flux_clip" class="trident-select" onchange="saveTrident()"><option value="">None</option></select></div>
+                            <div class="row"><span class="label-tag c-m">T5</span><select id="flux_t5" class="trident-select" onchange="saveTrident()"><option value="">None</option></select></div>
+                        </div>
+                        <div class="col">
+                            <label>Low Bits</label>
+                            <select id="flux_bits" onchange="saveSelection('flux_bits')">
+                                <option value="Automatic (fp16 LoRA)" selected>Automatic (fp16 LoRA)</option>
+                                <option value="Automatic">Automatic</option>
+                                <option value="bnb-nf4">bnb-nf4</option>
+                                <option value="bnb-nf4 (fp16 LoRA)">bnb-nf4 (fp16 LoRA)</option>
+                                <option value="float8-e4m3fn">float8-e4m3fn</option>
+                                <option value="float8-e4m3fn (fp16 LoRA)">float8-e4m3fn (fp16 LoRA)</option>
+                                <option value="bnb-fp4">bnb-fp4</option>
+                                <option value="bnb-fp4 (fp16 LoRA)">bnb-fp4 (fp16 LoRA)</option>
+                                <option value="float8-e5m2">float8-e5m2</option>
+                                <option value="float8-e5m2 (fp16 LoRA)">float8-e5m2 (fp16 LoRA)</option>
+                            </select>
+                        </div>
                     </div>
+                    <script>initGenericSection('grp-flux-trident', 'arr-flux-trident', 'bojro_vis_flux_trident')</script>
                 </div>
 
                 <div class="col" style="margin-bottom: 20px;">
@@ -228,13 +233,13 @@
                     <div class="row" onclick="toggleGeneric('grp-flux-hr', 'arr-flux-hr', 'bojro_vis_flux_hr')" style="justify-content:space-between; cursor:pointer; margin-bottom:5px; align-items:center;">
                         <div class="row" style="width:auto; gap:10px; align-items:center;">
                             <label style="cursor:pointer; margin:0;"><i data-lucide="arrow-up-circle" size="12"></i> Hi-Res Fix</label>
-                            <input type="checkbox" id="flux_hr_enable" style="width:14px; height:14px;" onchange="saveHr('flux'); event.stopPropagation();">
+                            <input type="checkbox" id="flux_hr_enable" class="bojro-switch" onchange="saveHr('flux'); event.stopPropagation();">
                         </div>
                         <i id="arr-flux-hr" data-lucide="chevron-down" size="14" style="transition: transform 0.2s;"></i>
                     </div>
 
                     <div id="grp-flux-hr" class="hidden">
-                        <div class="row" style="justify-content:space-between; margin-bottom:10px; border-bottom:1px solid var(--input-border); padding-bottom:5px;">
+                        <div class="row" style="justify-content:space-between; margin-bottom:10px; border-bottom:1px solid var(--border-color); padding-bottom:5px;">
                             <span style="font-size:10px; color:var(--text-muted);">UPSCALING</span>
                             <button onclick="resetHr('flux')" class="btn-icon" style="color:#f44336;" title="Reset Defaults"><i data-lucide="trash-2" size="12"></i></button>
                         </div>
@@ -308,7 +313,7 @@
                         </label>
                         <div class="row" style="width: auto; gap: 15px; align-items: center;">
                             <div class="row" style="width: auto; gap: 8px;" onclick="event.stopPropagation()">
-                                <input type="checkbox" id="flux_cache_enable" style="width: 16px; height: 16px;" onchange="saveFbcSettings()">
+                                <input type="checkbox" id="flux_cache_enable" class="bojro-switch" onchange="saveFbcSettings()">
                             </div>
                             <i id="fbc-arrow" data-lucide="chevron-down" size="16" style="transition: transform 0.2s; color: var(--text-muted);"></i>
                         </div>
@@ -347,10 +352,10 @@
                             </div>
                         </div>
 
-                        <div class="row" style="margin-top: 15px; justify-content: space-between; border-top: 1px solid var(--input-border); padding-top: 10px;">
+                        <div class="row" style="margin-top: 15px; justify-content: space-between; border-top: 1px solid var(--border-color); padding-top: 10px;">
                              <label>Skip Last Step</label>
                              <div class="row" style="width: auto; gap: 8px;">
-                                <input type="checkbox" id="flux_cache_last" style="width: 16px; height: 16px;" onchange="saveFbcSettings()">
+                                <input type="checkbox" id="flux_cache_last" class="bojro-switch" onchange="saveFbcSettings()">
                              </div>
                         </div>
                     </div>
@@ -391,26 +396,33 @@
                 </div>
 
                 <div class="glass-box">
-                    <div class="col" style="margin-bottom: 15px;">
-                        <label>Modules Override</label>
-                        <div class="row mb-5"><span class="label-tag c-p">VAE</span><select id="qwen_vae" class="trident-select" onchange="window.Neo.saveDual()"><option value="">Automatic</option></select></div>
-                        <div class="row mb-5"><span class="label-tag c-s">Qwen/TE</span><select id="qwen_te" class="trident-select" onchange="window.Neo.saveDual()"><option value="">None</option></select></div>
+                    <div class="row" onclick="toggleGeneric('grp-qwen-modules', 'arr-qwen-modules', 'bojro_vis_qwen_modules')" style="justify-content:space-between; cursor:pointer; margin-bottom:5px;">
+                        <label style="cursor:pointer;"><i data-lucide="package" size="12"></i> Modules Override</label>
+                        <i id="arr-qwen-modules" data-lucide="chevron-down" size="14" style="transition: transform 0.2s;"></i>
                     </div>
-                    <div class="col">
-                        <label>Low Bits</label>
-                        <select id="qwen_bits" onchange="saveSelection('qwen_bits')">
-                            <option value="Automatic (fp16 LoRA)" selected>Automatic (fp16 LoRA)</option>
-                            <option value="Automatic">Automatic</option>
-                            <option value="bnb-nf4">bnb-nf4</option>
-                            <option value="bnb-nf4 (fp16 LoRA)">bnb-nf4 (fp16 LoRA)</option>
-                            <option value="float8-e4m3fn">float8-e4m3fn</option>
-                            <option value="float8-e4m3fn (fp16 LoRA)">float8-e4m3fn (fp16 LoRA)</option>
-                            <option value="bnb-fp4">bnb-fp4</option>
-                            <option value="bnb-fp4 (fp16 LoRA)">bnb-fp4 (fp16 LoRA)</option>
-                            <option value="float8-e5m2">float8-e5m2</option>
-                            <option value="float8-e5m2 (fp16 LoRA)">float8-e5m2 (fp16 LoRA)</option>
-                        </select>
+
+                    <div id="grp-qwen-modules">
+                        <div class="col" style="margin-bottom: 15px; margin-top:10px;">
+                            <div class="row mb-5"><span class="label-tag c-p">VAE</span><select id="qwen_vae" class="trident-select" onchange="window.Neo.saveDual()"><option value="">Automatic</option></select></div>
+                            <div class="row mb-5"><span class="label-tag c-s">Qwen/TE</span><select id="qwen_te" class="trident-select" onchange="window.Neo.saveDual()"><option value="">None</option></select></div>
+                        </div>
+                        <div class="col">
+                            <label>Low Bits</label>
+                            <select id="qwen_bits" onchange="saveSelection('qwen_bits')">
+                                <option value="Automatic (fp16 LoRA)" selected>Automatic (fp16 LoRA)</option>
+                                <option value="Automatic">Automatic</option>
+                                <option value="bnb-nf4">bnb-nf4</option>
+                                <option value="bnb-nf4 (fp16 LoRA)">bnb-nf4 (fp16 LoRA)</option>
+                                <option value="float8-e4m3fn">float8-e4m3fn</option>
+                                <option value="float8-e4m3fn (fp16 LoRA)">float8-e4m3fn (fp16 LoRA)</option>
+                                <option value="bnb-fp4">bnb-fp4</option>
+                                <option value="bnb-fp4 (fp16 LoRA)">bnb-fp4 (fp16 LoRA)</option>
+                                <option value="float8-e5m2">float8-e5m2</option>
+                                <option value="float8-e5m2 (fp16 LoRA)">float8-e5m2 (fp16 LoRA)</option>
+                            </select>
+                        </div>
                     </div>
+                    <script>initGenericSection('grp-qwen-modules', 'arr-qwen-modules', 'bojro_vis_qwen_modules')</script>
                 </div>
 
                 <div class="col" style="margin-bottom: 20px;">
@@ -431,13 +443,13 @@
                     <div class="row" onclick="toggleGeneric('grp-qwen-hr', 'arr-qwen-hr', 'bojro_vis_qwen_hr')" style="justify-content:space-between; cursor:pointer; margin-bottom:5px; align-items:center;">
                         <div class="row" style="width:auto; gap:10px; align-items:center;">
                             <label style="cursor:pointer; margin:0;"><i data-lucide="arrow-up-circle" size="12"></i> Hi-Res Fix</label>
-                            <input type="checkbox" id="qwen_hr_enable" style="width:14px; height:14px;" onchange="saveHr('qwen'); event.stopPropagation();">
+                            <input type="checkbox" id="qwen_hr_enable" class="bojro-switch" onchange="saveHr('qwen'); event.stopPropagation();">
                         </div>
                         <i id="arr-qwen-hr" data-lucide="chevron-down" size="14" style="transition: transform 0.2s;"></i>
                     </div>
 
                     <div id="grp-qwen-hr" class="hidden">
-                        <div class="row" style="justify-content:space-between; margin-bottom:10px; border-bottom:1px solid var(--input-border); padding-bottom:5px;">
+                        <div class="row" style="justify-content:space-between; margin-bottom:10px; border-bottom:1px solid var(--border-color); padding-bottom:5px;">
                             <span style="font-size:10px; color:var(--text-muted);">UPSCALING</span>
                             <button onclick="resetHr('qwen')" class="btn-icon" style="color:#f44336;" title="Reset Defaults"><i data-lucide="trash-2" size="12"></i></button>
                         </div>
@@ -515,7 +527,7 @@
 
             <div class="row" style="margin-top: 15px; justify-content: space-between; align-items: center;">
                 <div class="row" style="width: auto; gap: 8px;">
-                    <input type="checkbox" id="autoDlCheck" onchange="saveAutoDlState()" style="width: 16px; height: 16px;">
+                    <input type="checkbox" id="autoDlCheck" class="bojro-switch" onchange="saveAutoDlState()">
                     <label for="autoDlCheck" style="margin: 0; color: var(--text-main);">Auto-Save</label>
                 </div>
                 <button onclick="clearGenResults()" class="btn-small dashed" style="width: auto; margin: 0; padding: 6px 10px;">CLEAR VIEW</button>
@@ -653,7 +665,7 @@
                         <div class="col" style="flex:0; margin-left:10px;">
                              <label style="white-space:nowrap;">Soft Inpaint</label>
                              <div class="row" style="justify-content:flex-end;">
-                                <input type="checkbox" id="inp_soft_inpaint" style="width:20px; height:20px;">
+                                <input type="checkbox" id="inp_soft_inpaint" class="bojro-switch">
                              </div>
                         </div>
                     </div>
@@ -728,7 +740,7 @@
             </div>
         </div>
 
-<div id="view-ana" class="hidden">
+        <div id="view-ana" class="hidden">
             <label for="imageUpload">
                 <div id="uploadBox">
                     <i data-lucide="image-plus" size="32" style="margin-bottom: 10px; color: var(--text-muted);"></i>
@@ -742,7 +754,7 @@
                     <div class="col"><label>Ratio</label><div id="arOut" style="font-weight: bold;">--</div></div>
                 </div>
             </div>
-            <div id="anaGallery" class="hidden" style="margin-top: 15px; border-radius: 8px; overflow: hidden; border: 1px solid var(--glass-border);">
+            <div id="anaGallery" class="hidden" style="margin-top: 15px; border-radius: 8px; overflow: hidden; border: 1px solid var(--border-color);">
                 <img id="anaPreview" style="width: 100%; display: block;">
             </div>
             <div style="margin-top: 15px;">
@@ -751,8 +763,8 @@
                 
                 <div id="anaCopyButtons" class="row hidden" style="margin-top: 10px; gap: 10px;">
                     <button onclick="copyToSdxl()" class="btn-small" style="background: var(--accent-gradient); color:white;">USE IN SDXL</button>
-                    <button onclick="copyToFlux()" class="btn-small" style="background: var(--glass-panel); border:1px solid var(--accent-primary); color:var(--accent-primary);">USE IN FLUX</button>
-                    <button onclick="copyToQwen()" class="btn-small" style="background: var(--glass-panel); border:1px solid var(--accent-primary); color:var(--accent-primary);">USE IN QWEN</button>
+                    <button onclick="copyToFlux()" class="btn-small" style="background: var(--bg-panel); border:1px solid var(--accent-primary); color:var(--accent-primary);">USE IN FLUX</button>
+                    <button onclick="copyToQwen()" class="btn-small" style="background: var(--bg-panel); border:1px solid var(--accent-primary); color:var(--accent-primary);">USE IN QWEN</button>
                 </div>
             </div>
         </div>
@@ -808,15 +820,15 @@
                         </label>
                         <div class="row" style="justify-content: space-between; background: var(--bg-input); padding: 12px; border-radius: 6px; border: 1px solid var(--border-color);">
                             <div class="row" style="width: auto; gap: 8px;">
-                                <input type="checkbox" id="cfgShowXl" checked onchange="saveModelVisibility()">
+                                <input type="checkbox" id="cfgShowXl" class="bojro-switch" checked onchange="saveModelVisibility()">
                                 <label for="cfgShowXl" style="margin: 0; font-size: 12px;">SDXL</label>
                             </div>
                             <div class="row" style="width: auto; gap: 8px;">
-                                <input type="checkbox" id="cfgShowFlux" checked onchange="saveModelVisibility()">
+                                <input type="checkbox" id="cfgShowFlux" class="bojro-switch" checked onchange="saveModelVisibility()">
                                 <label for="cfgShowFlux" style="margin: 0; font-size: 12px;">FLUX</label>
                             </div>
                             <div class="row" style="width: auto; gap: 8px;">
-                                <input type="checkbox" id="cfgShowQwen" checked onchange="saveModelVisibility()">
+                                <input type="checkbox" id="cfgShowQwen" class="bojro-switch" checked onchange="saveModelVisibility()">
                                 <label for="cfgShowQwen" style="margin: 0; font-size: 12px;">QWEN</label>
                             </div>
                         </div>
@@ -976,7 +988,7 @@
                     <textarea id="llmOutput" rows="4" placeholder="AI Output will appear here..." readonly></textarea>
                 </div>
 
-                <button id="llmUseBtn" onclick="useLlmPrompt()" class="btn-small" style="width:100%; background:var(--glass-border); color:var(--text-main); border:1px solid var(--accent-primary);">USE AS PROMPT</button>
+                <button id="llmUseBtn" onclick="useLlmPrompt()" class="btn-small" style="width:100%; background:var(--bg-input); color:var(--text-main); border:1px solid var(--accent-primary);">USE AS PROMPT</button>
 
                 <div style="display:none;">
                     <textarea id="llmSystemPrompt" rows="4"></textarea>
@@ -984,7 +996,7 @@
 
                 <div class="row" style="justify-content: space-between; align-items: center; margin: 5px 0 5px 0; padding: 0 5px;">
                     <div class="row" style="width: auto; gap: 8px;">
-                        <input type="checkbox" id="llmPersistentCheck" onchange="toggleLlmPersistent()" style="width: 16px; height: 16px;">
+                        <input type="checkbox" id="llmPersistentCheck" class="bojro-switch" onchange="toggleLlmPersistent()">
                         <label for="llmPersistentCheck" style="margin: 0; font-size: 11px; color: var(--text-main); font-weight: bold;">Persistent Chat</label>
                     </div>
                     <button id="llmResetBtn" onclick="resetLlmHistory()" class="btn-small hidden" style="width: auto; padding: 4px 8px; font-size: 10px; background: rgba(244, 67, 54, 0.1); color: #f44336; border-color: rgba(244, 67, 54, 0.3);">
@@ -992,7 +1004,7 @@
                     </button>
                 </div>
 
-<div id="llmSettingsBox" class="glass-box hidden" style="padding: 10px; background: rgba(0,0,0,0.3); margin-top:10px;">
+                <div id="llmSettingsBox" class="glass-box hidden" style="padding: 10px; background: rgba(0,0,0,0.3); margin-top:10px;">
                     <label style="color: var(--accent-primary);">LLM Connection</label>
                     <div class="col" style="margin-top:5px; gap:8px;">
                         <div class="row" style="align-items: center; gap: 10px;">
@@ -1016,7 +1028,7 @@
         </div>
     </div>
     
-<div id="fullScreenModal" class="modal hidden">
+    <div id="fullScreenModal" class="modal hidden">
         <div class="lightbox-container">
             <button class="nav-arrow left" onclick="slideImage(-1)"><i data-lucide="chevron-left"></i></button>
             <img id="fsImage" class="lightbox-img">
@@ -1024,11 +1036,8 @@
         </div>
         <div class="lightbox-controls">
             <button onclick="closeFsModal()" class="btn-small" style="background: #333;">CLOSE</button>
-            
             <button onclick="downloadCurrent()" class="btn-icon" style="background: var(--accent-secondary); border:none; color:white;"><i data-lucide="download"></i></button>
-            
             <button onclick="editCurrentFs()" class="btn-icon" style="background: var(--accent-primary); border:none; color:white;"><i data-lucide="brush"></i></button>
-            
             <button onclick="deleteCurrentFsImage()" class="btn-icon" style="background: #f44336; border:none; color:white;"><i data-lucide="trash-2"></i></button>
             <button onclick="analyzeCurrentFs()" class="btn-small" style="background: var(--accent-primary);">ANALYZE</button>
         </div>
@@ -1046,7 +1055,7 @@
                 <span>QUE</span>
             </div>
             <div class="dock-item" onclick="switchTab('gal')"><i data-lucide="image"></i><span>GAL</span></div>
-<div class="dock-item" onclick="switchTab('ana')"><i data-lucide="scan-line"></i><span>ANA</span></div>
+            <div class="dock-item" onclick="switchTab('ana')"><i data-lucide="scan-line"></i><span>ANA</span></div>
             <div class="dock-item" onclick="switchTab('cfg')"><i data-lucide="settings"></i><span>CFG</span></div>
         </div>
     </div>

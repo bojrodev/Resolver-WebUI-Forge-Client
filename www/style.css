@@ -44,9 +44,11 @@
     --btn-bg-hover: #3d3d45;
     
     --success: #00e676;
+    --success-glow: rgba(0, 230, 118, 0.3); /* Premium toggle glow */
     --error: #f44336;
     
     --shadow-soft: 0 4px 12px rgba(0,0,0,0.3);
+    --shadow-inset: inset 0 2px 4px rgba(0,0,0,0.5);
     --radius-sm: 8px;
     --radius-md: 12px;
     --radius-lg: 16px;
@@ -97,7 +99,7 @@
 }
 
 /* =========================================
-   2. GLOBAL RESET & BASE
+   2. GLOBAL RESET & BASE (RESPONSIVE UPGRADE)
    ========================================= */
 * {
     box-sizing: border-box;
@@ -109,13 +111,14 @@ body {
     color: var(--text-main);
     font-family: var(--font-stack);
     margin: 0;
-    padding: 15px;
+    padding: clamp(10px, 4vw, 20px); /* Fluid padding for responsiveness */
     padding-top: env(safe-area-inset-top);
     padding-bottom: calc(var(--dock-height) + 20px + env(safe-area-inset-bottom)); /* Space for Dock */
     display: flex;
     flex-direction: column;
     gap: 15px;
     min-height: 100vh;
+    overflow-x: hidden; /* Invisible border system: stage 1 */
     overscroll-behavior-y: none; /* Prevent pull-to-refresh on mobile web app */
     transition: background-color 0.3s ease, color 0.3s ease;
 }
@@ -130,15 +133,16 @@ canvas {
 /* Utilities */
 .hidden { display: none !important; }
 
-/* FIX: Added flex: 1 to ensure container fills vertical space for centering */
+/* INVISIBLE BORDER SYSTEM: Strictly constrains width for tablets and phones */
 .container { 
-    max-width: 600px; 
+    max-width: 650px; 
     margin: 0 auto; 
     width: 100%; 
     display: flex; 
     flex-direction: column; 
     gap: 15px; 
     flex: 1; 
+    overflow-x: hidden; /* Invisible border system: stage 2 */
 }
 
 .row { display: flex; gap: 10px; align-items: center; width: 100%; }
@@ -148,7 +152,7 @@ canvas {
 .c-s { color: var(--accent-secondary); font-weight: bold; }
 
 /* =========================================
-   3. HEADER & TYPOGRAPHY
+   3. HEADER & TYPOGRAPHY (RESPONSIVE)
    ========================================= */
 .header-row {
     display: flex;
@@ -161,7 +165,7 @@ h2 {
     text-align: center;
     font-weight: 900;
     margin: 0;
-    font-size: 20px;
+    font-size: clamp(18px, 6vw, 22px); /* Scales font for different devices */
     background: var(--accent-gradient);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
@@ -183,7 +187,7 @@ label {
 }
 
 /* =========================================
-   4. INPUTS & FORMS
+   4. INPUTS & PREMIUM TOGGLES
    ========================================= */
 input:not([type="checkbox"]):not([type="range"]), 
 select, 
@@ -200,18 +204,54 @@ textarea {
     appearance: none; /* Remove default browser styling */
 }
 
+/* Layout Protection: Disable textarea dragging to prevent screen breaking */
+textarea {
+    resize: none !important;
+}
+
 input:focus, select:focus, textarea:focus {
     outline: none;
     border-color: var(--accent-primary);
     background: var(--bg-input-focus);
 }
 
-/* Custom Checkbox */
-input[type="checkbox"] {
-    width: 20px;
+/* --- THE PREMIUM GLOWING TOGGLE (BOJRO-SWITCH) --- */
+.bojro-switch {
+    appearance: none;
+    width: 38px;
     height: 20px;
-    accent-color: var(--accent-primary);
+    background: var(--bg-input);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    position: relative;
     cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: var(--shadow-inset);
+    flex-shrink: 0;
+}
+
+.bojro-switch::after {
+    content: '';
+    position: absolute;
+    top: 3px;
+    left: 3px;
+    width: 12px;
+    height: 12px;
+    background: var(--text-muted);
+    border-radius: 50%;
+    transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.bojro-switch:checked {
+    background: rgba(0, 230, 118, 0.1);
+    border-color: var(--success);
+    box-shadow: 0 0 10px var(--success-glow);
+}
+
+.bojro-switch:checked::after {
+    left: 21px;
+    background: var(--success);
+    box-shadow: 0 0 6px var(--success);
 }
 
 /* Readonly fields (like logs) */
@@ -245,7 +285,7 @@ input[readonly], textarea[readonly] {
 }
 
 /* =========================================
-   5. BUTTONS
+   5. BUTTONS (THEME-AWARE UPDATED)
    ========================================= */
 /* Base small button */
 .btn-small {
@@ -339,111 +379,94 @@ input[readonly], textarea[readonly] {
     text-shadow: none;
 }
 
-/* =======================================================
-   NEW BRICK BUTTON STYLE (INDUSTRIAL WIREFRAME + VECTORS)
-   ======================================================= */
+/* --- THEME-AWARE BRICK BUTTON --- */
 .brick-btn {
     width: 100%;
     background: var(--bg-input);
     border: 1px solid var(--border-color);
     padding: 16px;
-    
-    /* Layout: Centers Icon + Text */
     display: flex;
     align-items: center;
     justify-content: center;
     gap: 12px; 
-    
-    /* Typography */
     font-family: 'Inter', sans-serif;
     font-weight: 900;
     font-size: clamp(14px, 5vw, 18px); 
     text-transform: uppercase;
     letter-spacing: 3px;
     white-space: nowrap; 
-    
     cursor: pointer;
     border-radius: 4px;
     transition: all 0.4s ease;
     margin-bottom: 15px;
     outline: none;
-    
-    /* Deep Recessed Button Face */
     box-shadow: inset 0 0 10px rgba(0,0,0,0.8);
 
-    /* --- STATE 1: IDLE (THE ENGRAVED VOID) --- */
-    
-    /* TEXT: Hollow Gray Wireframe */
+    /* Responsive Text Stroke */
     -webkit-text-fill-color: transparent;
     color: transparent;
     -webkit-text-stroke: 1.2px var(--text-muted); 
     
-    /* Shadow for depth (Top Shadow, Bottom Highlight) */
     text-shadow: 
         0px 1px 0px rgba(255, 255, 255, 0.05),
         0px -1px 0px rgba(0, 0, 0, 0.8);
 }
 
-/* ICON SPECIFIC STYLING (The Thunder/Cloud) */
 .brick-btn svg {
     width: 24px;
     height: 24px;
-    stroke: var(--text-muted); /* Gray Wireframe */
+    stroke: var(--text-muted); 
     stroke-width: 2px;
-    fill: transparent;         /* Hollow Inside */
-    
-    /* Engraved Depth for the Icon */
+    fill: transparent;         
     filter: drop-shadow(0px 1px 0px rgba(255,255,255,0.05)) 
             drop-shadow(0px -1px 0px rgba(0,0,0,0.8));
     transition: all 0.4s ease;
 }
 
-.brick-btn:active {
-    transform: scale(0.98);
-}
+.brick-btn:active { transform: scale(0.98); }
 
-/* --- STATE 2: CONNECTING (GREEN PULSE) --- */
+/* --- STATE: CONNECTING (THEME-AWARE GREEN) --- */
 .brick-btn.connecting {
-    border-color: #00e676;
-    background: rgba(0, 230, 118, 0.05); 
-    
-    /* Green Text Wireframe */
-    -webkit-text-stroke: 1.2px #00e676;
+    border-color: var(--success);
+    background: rgba(var(--accent-primary-rgb), 0.05);
+    -webkit-text-stroke: 1.2px var(--success);
     text-shadow: none;
-    
-    /* Green Icon Wireframe */
-    filter: drop-shadow(0 0 5px rgba(0, 230, 118, 0.6));
+    filter: drop-shadow(0 0 5px var(--success-glow));
 }
 
 .brick-btn.connecting svg {
-    stroke: #00e676;
-    filter: drop-shadow(0 0 5px #00e676);
+    stroke: var(--success);
+    filter: drop-shadow(0 0 5px var(--success));
     animation: pulse-icon 1s infinite alternate;
 }
 
-/* --- STATE 3: INITIALIZED (ORANGE INDUSTRIAL NEON) --- */
+/* --- STATE: INITIALIZED (THEME-AWARE NEON) --- */
 .brick-btn.active {
-    background: #080808; /* Darkest black for contrast */
-    border-color: #ff9800; 
-    
-    /* Orange Text Wireframe */
-    -webkit-text-stroke: 1.5px #ff9800; 
+    background: var(--bg-input-focus); 
+    border-color: var(--accent-primary); 
+    -webkit-text-stroke: 1.5px var(--accent-primary); 
     text-shadow: none;
     
-    /* Text Glow */
-    filter: drop-shadow(0 0 3px #ff9800) drop-shadow(0 0 8px rgba(255, 152, 0, 0.5));
+    filter: drop-shadow(0 0 3px var(--accent-primary)) 
+            drop-shadow(0 0 8px var(--accent-glow));
             
-    /* Inner Amber Ambient Light */
-    box-shadow: inset 0 0 40px rgba(255, 152, 0, 0.15);
+    box-shadow: inset 0 0 40px rgba(var(--accent-primary-rgb), 0.15);
 }
 
 .brick-btn.active svg {
-    stroke: #ff9800;
-    stroke-width: 2.5px; /* Thicker "Tube" when active */
-    
-    /* Intense Icon Glow */
-    filter: drop-shadow(0 0 5px #ff9800) 
-            drop-shadow(0 0 15px #ff5722);
+    stroke: var(--accent-primary);
+    stroke-width: 2.5px; 
+    filter: drop-shadow(0 0 5px var(--accent-primary)) 
+            drop-shadow(0 0 15px var(--accent-secondary));
+}
+
+/* Ensure icons/text remain legible in Light Mode */
+[data-theme="light"] .brick-btn {
+    text-shadow: none;
+    box-shadow: inset 0 0 5px rgba(0,0,0,0.1);
+}
+[data-theme="light"] .brick-btn svg {
+    filter: none;
 }
 
 @keyframes pulse-icon {
@@ -743,10 +766,10 @@ input[readonly], textarea[readonly] {
 }
 
 /* =========================================
-   10. LORA BROWSER & FOLDER FILTER STYLES (NEW)
+   10. LORA BROWSER & FOLDER FILTER STYLES
    ========================================= */
 
-/* --- NEW: Horizontal Chip Container --- */
+/* --- Horizontal Chip Container --- */
 .folder-chips-row {
     display: flex;
     gap: 8px;
@@ -761,7 +784,7 @@ input[readonly], textarea[readonly] {
     display: none; /* Hide scrollbar Chrome/Safari */
 }
 
-/* --- NEW: Individual Chip --- */
+/* --- Individual Chip --- */
 .folder-chip {
     background: var(--bg-input);
     border: 1px solid var(--border-color);
@@ -791,7 +814,7 @@ input[readonly], textarea[readonly] {
     box-shadow: 0 2px 8px rgba(var(--accent-primary-rgb), 0.3);
 }
 
-/* --- NEW: Folder Manager List (Vertical) --- */
+/* --- Folder Manager List (Vertical) --- */
 .folder-list-vertical {
     display: flex;
     flex-direction: column;
@@ -849,8 +872,7 @@ input[readonly], textarea[readonly] {
     transform: scale(1.2);
 }
 
-/* Existing LoRA Styles below... */
-
+/* LoRA Item Styles */
 .lora-item-row {
     background: var(--bg-panel);
     padding: 8px; /* Reduced padding for compact look */
