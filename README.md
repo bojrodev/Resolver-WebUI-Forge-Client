@@ -54,16 +54,20 @@ Unlike standard browser wrappers, Resolver is built with a **Hybrid Architecture
 
 ### 🧠 Magic Prompt (Local LLM)
 * **Smart Expansion:** Integrates with local LLM servers (LM Studio, Ollama) to translate simple ideas into professional prompts.
-* **Recommended Model:** For best results, use **[Bojro PromptMaster Abliterated 8B](https://huggingface.co/bojrodev/BojroPromptMasterAbliterated-8B)**. It is specifically fine-tuned for the system prompts used in this app.
+* **Recommended Models:** For best results, use either of our official **Uncensored** fine-tunes:
+  * **[v2 (Uncensored)](https://huggingface.co/bojrodev/BojroPromptMaster_uncensored_v2-8B)**: The latest engine with improved logic and reduced refusals.
+  * **[v1 (Uncensored)](https://huggingface.co/bojrodev/BojroPromptMaster-v1-8B)**: The original reliable logic engine.
 * **Dynamic Mode Switching:** Automatically applies specialized system prompts for SDXL, Flux, and Qwen narratives.
 
 ---
 
 ## 🤖 Magic Prompt (LLM) Setup
 
-To use the "Magic Prompt" feature, it is highly recommended to host the **Bojro PromptMaster** model on your PC.
+To use the "Magic Prompt" feature, it is highly recommended to host a **Bojro PromptMaster** model on your PC.
 
-1.  **Download the Model:** Get the GGUF version from [Hugging Face](https://huggingface.co/bojrodev/BojroPromptMasterAbliterated-8B).
+1.  **Download a Model:** Get the GGUF version of your choice from Hugging Face:
+    * 👉 **[PromptMaster v2 (Uncensored)](https://huggingface.co/bojrodev/BojroPromptMaster_uncensored_v2-8B)** (Recommended)
+    * 👉 **[PromptMaster v1 (Uncensored)](https://huggingface.co/bojrodev/BojroPromptMaster-v1-8B)**
 2.  **Run Server:** Load the model into **LM Studio** or **Ollama** and ensure it is serving on your local network (e.g., `http://192.168.1.10:1234`).
 3.  **Connect App:**
     * In Resolver, tap the **Bot Icon** to open the Magic Prompt modal.
@@ -111,4 +115,3 @@ npm install
 npx cap sync
 npx cap open android
 # Open the Android Project in Android Studio
-npx cap open android
