@@ -7,7 +7,7 @@
 
 **Resolver** is a high-performance, native Android interface for [Stable Diffusion WebUI Forge Neo](https://github.com/Haoming02/sd-webui-forge-classic/tree/neo).
 
-**New in v1.2:** Resolver now features a centralized **Configuration (CFG)** tab, allowing for seamless switching between Local LAN (HTTP) and External Cloud/Ngrok (HTTPS) connections, custom service ports, and a new remote "Kill Switch" for system management.
+**New in v1.2:** Resolver now features a centralized **Configuration (CFG)** tab for seamless Local/External switching, a remote "Kill Switch", **Flux First Block Cache (FBC)** integration, and native **Hi-Res Fix** support.
 
 Unlike standard browser wrappers, Resolver is built with a **Hybrid Architecture** (Capacitor 6.0 + Vanilla JS) and utilizes **Native Android Foreground Services** to ensure your generation queues never die in the background.
 
@@ -71,12 +71,21 @@ Unlike standard browser wrappers, Resolver is built with a **Hybrid Architecture
 * **Custom Service Ports:** Define independent ports for your WebUI (Default: `7860`), LLM Server (`1234`), and Power Service (`5000`) inside the new CFG tab.
 * **Remote Wake & Kill:** Use the "Bojro Dev Power" controls to send Wake-on-LAN signals or a **KILL!** signal to immediately halt the backend server from your phone.
 
+### ⚡ Flux First Block Cache (FBC)
+* **Native Integration:** First mobile client to support the **Forge Block Cache** extension.
+* **Speed Boost:** Skip redundant diffusion steps (`bnb-nf4`, `fp8`) to significantly reduce generation time on Flux models.
+* **Tunable:** Adjust threshold and skip steps directly from the Flux UI.
+
+### 🖌️ Native Hi-Res Fix
+* **Upscaling Engine:** Full support for `Hires. fix` across SDXL, Flux, and Qwen modes.
+* **Controls:** Select upscalers (ESRGAN, etc.), set denoising strength, and upscale factors within the app.
+
 ### ⚡ True Background Generation
 * **Native Foreground Service:** Uses a Java-based service and Wake Locks to keep WebSocket connections alive during long Flux GGUF workflows or massive batch queues, even when the screen is off.
-* **Queue Persistence:** robust state management system for Ongoing, Next, and Completed jobs.
+* **Queue Persistence:** Robust state management system for Ongoing, Next, and Completed jobs.
 
 ### 🎨 Advanced Generation Engines
-* **Flux GGUF Optimized:** Includes dedicated selectors for VAE, CLIP, and T5-XXL models, with support for specific quantization bits (bnb-nf4, fp8-e4m3fn, etc.).
+* **Flux GGUF Optimized:** Includes dedicated selectors for VAE, CLIP, and T5-XXL models, with support for specific quantization bits.
 * **Qwen / Z-Image Turbo:** Specialized "Turbo Generate" mode for Qwen models with dense narrative support.
 * **SDXL Powerhouse:** Full control over sampling, scheduling, and aspect ratio locking.
 * **Mobile Inpainting:** A touch-optimized canvas editor with mask blurring, soft inpainting, and denoising controls.
