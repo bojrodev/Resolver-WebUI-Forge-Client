@@ -18,6 +18,9 @@ const Neo = {
         const sel = document.getElementById('qwen_modelSelect');
         if(!sel) return;
         
+        // SORT MODELS ALPHABETICALLY BY NAME
+        models.sort((a, b) => a.model_name.localeCompare(b.model_name, undefined, {sensitivity: 'base'}));
+
         const currentVal = sel.value;
         sel.innerHTML = "";
         
@@ -70,6 +73,9 @@ const Neo = {
         });
 
         if(modulesList.length > 0) {
+            // SORT MODULES ALPHABETICALLY
+            modulesList.sort((a, b) => a.localeCompare(b, undefined, {sensitivity: 'base'}));
+
             slots.forEach(sel => {
                 if(!sel) return;
                 modulesList.forEach(name => {

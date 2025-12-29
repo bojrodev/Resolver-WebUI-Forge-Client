@@ -35,29 +35,26 @@ window.switchTab = function(view) {
         items[1].classList.add('active');
         currentTask = 'inp';
         
-        // --- FIX: ENFORCE INPAINT SAMPLER DEFAULT ---
+        // Enforce Inpaint Sampler Default if needed
         const inpSamplerEl = document.getElementById('inp_sampler');
         const savedSampler = localStorage.getItem('bojro_inp_sampler');
         
         if (savedSampler) {
-            // Restore saved user preference
             if (inpSamplerEl.value !== savedSampler) {
                 const optionExists = Array.from(inpSamplerEl.options).some(o => o.value === savedSampler);
                 if (optionExists) inpSamplerEl.value = savedSampler;
             }
         } else {
-            // No save found -> Enforce Default: DPM++ 2M SDE
             const targetDefault = "DPM++ 2M SDE";
             const optionExists = Array.from(inpSamplerEl.options).some(o => o.value === targetDefault);
             if (optionExists && inpSamplerEl.value !== targetDefault) {
                 inpSamplerEl.value = targetDefault;
-                localStorage.setItem('bojro_inp_sampler', targetDefault); // Save it as new default
+                localStorage.setItem('bojro_inp_sampler', targetDefault); 
             }
         }
     }
     if (view === 'que') {
         items[2].classList.add('active');
-        // If renderQueueAll exists (engine.js), call it
         if (typeof renderQueueAll === 'function') renderQueueAll();
     }
     if (view === 'gal') {
@@ -65,6 +62,7 @@ window.switchTab = function(view) {
         if (typeof loadGallery === 'function') loadGallery();
     }
     if (view === 'ana') items[4].classList.add('active');
+    if (view === 'cfg') items[5].classList.add('active'); // Ensure CFG tab highlights
 }
 
 window.setMode = async function(mode) {
@@ -72,20 +70,20 @@ window.setMode = async function(mode) {
     const root = document.documentElement;
     const btnXL = document.getElementById('btn-xl');
     const btnFlux = document.getElementById('btn-flux');
-    // --- NEO HOOK: QWEN BTN ---
     const btnQwen = document.getElementById('btn-qwen');
 
     const xlRow = document.getElementById('row-xl-model');
     const fluxRow = document.getElementById('row-flux-model');
-    // --- NEO HOOK: QWEN ROW ---
     const qwenRow = document.getElementById('row-qwen-model');
 
     const xlCont = document.getElementById('mode-xl-container');
     const fluxCont = document.getElementById('mode-flux-container');
-    // --- NEO HOOK: QWEN CONT ---
     const qwenCont = document.getElementById('mode-qwen-container');
 
-    // Reset all
+    // Title Reference for Glitch Effect
+    const titleEl = document.getElementById('appTitle');
+
+    // Reset all states
     btnXL.classList.remove('active');
     btnFlux.classList.remove('active');
     if (btnQwen) btnQwen.classList.remove('active');
@@ -98,28 +96,34 @@ window.setMode = async function(mode) {
     fluxCont.classList.add('hidden');
     if (qwenCont) qwenCont.classList.add('hidden');
 
+    // --- MODE SWITCHING LOGIC ---
+    
     if (mode === 'flux') {
-        root.setAttribute('data-mode', 'flux');
+        root.setAttribute('data-mode', 'flux'); // Triggers Blue Theme
         btnFlux.classList.add('active');
         fluxRow.classList.remove('hidden');
         fluxCont.classList.remove('hidden');
         document.getElementById('genBtn').innerText = "QUANTUM GENERATE";
-        document.getElementById('appTitle').innerText = "BOJRO FLUX";
     } else if (mode === 'qwen') {
-        // --- NEO HOOK: QWEN LOGIC ---
-        root.setAttribute('data-mode', 'qwen');
+        root.setAttribute('data-mode', 'qwen'); // Triggers Pink/Plum Theme
         if (btnQwen) btnQwen.classList.add('active');
         if (qwenRow) qwenRow.classList.remove('hidden');
         if (qwenCont) qwenCont.classList.remove('hidden');
         document.getElementById('genBtn').innerText = "TURBO GENERATE";
-        document.getElementById('appTitle').innerText = "BOJRO NEO";
     } else {
-        root.removeAttribute('data-mode');
+        root.removeAttribute('data-mode'); // Default SDXL Dark/Orange Theme
         btnXL.classList.add('active');
         xlRow.classList.remove('hidden');
         xlCont.classList.remove('hidden');
         document.getElementById('genBtn').innerText = "GENERATE";
-        document.getElementById('appTitle').innerText = "BOJRO RESOLVER";
+    }
+
+    // --- UNIFIED TITLE (Prevents Glitch Breakage) ---
+    // The text and data-text must match for the CSS glitch effect to work correctly.
+    const unifiedTitle = "BOJRO RESOLVER";
+    if (titleEl) {
+        titleEl.innerText = unifiedTitle;
+        titleEl.setAttribute('data-text', unifiedTitle);
     }
 }
 
@@ -133,7 +137,6 @@ window.saveSelection = function(key) {
     else if (key === 'inp_content') localStorage.setItem('bojro_inp_content', document.getElementById('inp_content').value);
     else if (key === 'inp_padding') localStorage.setItem('bojro_inp_padding', document.getElementById('inp_padding').value);
     else if (key === 'inp_sampler') localStorage.setItem('bojro_inp_sampler', document.getElementById('inp_sampler').value);
-    // --- NEO HOOK: SAVE QWEN ---
     else if (key === 'qwen') localStorage.setItem('bojroModel_qwen', document.getElementById('qwen_modelSelect').value);
     else if (key === 'qwen_bits') localStorage.setItem('bojro_qwen_bits', document.getElementById('qwen_bits').value);
 }
@@ -152,7 +155,7 @@ window.resetPrompt = function(mode) {
         const el = document.getElementById(`${mode}_prompt`);
         if (el) {
             el.value = DEFAULT_PROMPTS[mode] || "";
-            savePrompt(mode); // Save the reset state immediately
+            savePrompt(mode); 
         }
     }
 }
@@ -165,9 +168,7 @@ window.loadSavedPrompts = function() {
             el.value = saved;
         }
     });
-    // Init High-Res Fix settings
     window.initHr();
-    // NEW: Init Global UI Persistence States
     window.initGlobalUiState();
 }
 
@@ -263,7 +264,6 @@ window.updateWeightDisplay = (val) => document.getElementById('cfgWeightDisplay'
 function loadPowerSettings() {
     const savedIP = localStorage.getItem('bojro_power_ip');
     if (savedIP) {
-        // Safe check in case element is missing
         const el = document.getElementById('power-server-ip');
         if(el) el.value = savedIP;
     }
@@ -278,13 +278,11 @@ window.savePowerSettings = function() {
     const ipInput = document.getElementById('power-server-ip').value.trim();
 
     if (ipInput) {
-        // Ensure protocol exists (http://)
         let formattedIP = ipInput;
         if (!formattedIP.startsWith('http')) {
             formattedIP = 'http://' + formattedIP;
         }
 
-        // Remove trailing slash if present
         if (formattedIP.endsWith('/')) {
             formattedIP = formattedIP.slice(0, -1);
         }
@@ -311,12 +309,10 @@ window.openLlmModal = (mode) => {
     const persistentCheck = document.getElementById('llmPersistentCheck');
     const resetBtn = document.getElementById('llmResetBtn');
 
-    // Restore mode-specific state
     inputEl.value = llmState[mode].input;
     outputEl.value = llmState[mode].output;
     persistentCheck.checked = llmState[mode].persistent;
     
-    // UI Logic: Show reset only if persistent is ON
     if (llmState[mode].persistent) resetBtn.classList.remove('hidden');
     else resetBtn.classList.add('hidden');
 
@@ -328,7 +324,6 @@ window.openLlmModal = (mode) => {
     updateLlmButtonState();
     if (!inputEl.value) inputEl.focus();
     
-    // Refresh icons in modal (Reset button uses refresh-cw)
     if (typeof lucide !== 'undefined') lucide.createIcons();
 }
 
@@ -338,7 +333,6 @@ window.updateLlmState = function() {
     llmState[activeLlmMode].input = document.getElementById('llmInput').value;
 }
 
-// NEW: Toggle Logic
 window.toggleLlmPersistent = function() {
     const isChecked = document.getElementById('llmPersistentCheck').checked;
     llmState[activeLlmMode].persistent = isChecked;
@@ -348,12 +342,10 @@ window.toggleLlmPersistent = function() {
         resetBtn.classList.remove('hidden');
     } else {
         resetBtn.classList.add('hidden');
-        // Optional: Clear history when switching off to free memory
         llmState[activeLlmMode].history = []; 
     }
 }
 
-// NEW: Reset Logic (Clear current mode's history array)
 window.resetLlmHistory = function() {
     if (confirm("Reset current chat history? All previous context for this mode will be deleted.")) {
         llmState[activeLlmMode].history = [];
@@ -364,19 +356,15 @@ window.resetLlmHistory = function() {
 function updateLlmButtonState() {
     const hasOutput = llmState[activeLlmMode].output.trim().length > 0;
     const isPersistent = llmState[activeLlmMode].persistent;
-    // Iterate sounds better for persistent chat
     document.getElementById('llmGenerateBtn').innerText = (isPersistent && hasOutput) ? "ITERATE" : "GENERATE PROMPT";
 }
 
-// FIX: Safe Loading of LLM Settings
-// This prevents crashing if legacy ID elements (llmApiBase, llmApiKey) are missing from index.html
 function loadLlmSettings() {
     const s = localStorage.getItem('bojroLlmConfig');
     if (s) {
         const loaded = JSON.parse(s);
         llmSettings = { ...llmSettings, ...loaded };
 
-        // Safe checks: Only set value if element exists
         const elBase = document.getElementById('llmApiBase');
         if (elBase) elBase.value = llmSettings.baseUrl || '';
         
@@ -393,7 +381,6 @@ function loadLlmSettings() {
     }
 }
 
-// FIX: Safe Saving of LLM Settings
 window.saveLlmGlobalSettings = function() {
     const elBase = document.getElementById('llmApiBase');
     if (elBase) llmSettings.baseUrl = elBase.value.replace(/\/$/, "");
@@ -420,7 +407,6 @@ window.useLlmPrompt = function() {
     const result = document.getElementById('llmOutput').value;
     if (!result) return alert("Generate a prompt first!");
 
-    // --- NEO HOOK: TARGET QWEN PROMPT ---
     let targetId;
     if (activeLlmMode === 'xl') targetId = 'xl_prompt';
     else if (activeLlmMode === 'flux') targetId = 'flux_prompt';
@@ -437,8 +423,6 @@ window.useLlmPrompt = function() {
     }
 }
 
-
-// FBc Collapse Toggle Wrapper for Generic Logic
 window.toggleFbcSection = function() {
     toggleGeneric('fbc-settings-content', 'fbc-arrow', 'bojro_vis_fbc');
 }
@@ -446,7 +430,6 @@ window.toggleFbcSection = function() {
 // --- HIGH-RES FIX LOGIC ---
 
 window.resetHr = function(mode) {
-    // Default values: steps 6, Cfg 1 and denoise to 0.4
     document.getElementById(`${mode}_hr_steps`).value = 6;
     document.getElementById(`${mode}_hr_cfg`).value = 1.0;
     document.getElementById(`${mode}_hr_denoise`).value = 0.4;
@@ -465,12 +448,10 @@ window.saveHr = function(mode) {
 
 window.initHr = function() {
     ['xl', 'flux', 'qwen'].forEach(mode => {
-        // Load Enable State
         const sEnable = localStorage.getItem(`bojro_${mode}_hr_enable`);
         const elEnable = document.getElementById(`${mode}_hr_enable`);
         if (elEnable) elEnable.checked = (sEnable === 'true');
 
-        // Load Values (with defaults if missing)
         const loadVal = (id, def) => {
             const el = document.getElementById(`${mode}_hr_${id}`);
             const saved = localStorage.getItem(`bojro_${mode}_hr_${id}`);
@@ -482,7 +463,6 @@ window.initHr = function() {
         loadVal('denoise', 0.4);
         loadVal('scale', 1.5);
         
-        // NEW: Initialize HR collapse states (Default Closed for HR fix, but persistent)
         initGenericSectionClosed(`grp-${mode}-hr`, `arr-${mode}-hr`, `bojro_vis_${mode}_hr`);
     });
 }
@@ -490,19 +470,12 @@ window.initHr = function() {
 // --- GLOBAL UI PERSISTENCE INITIALIZER ---
 
 window.initGlobalUiState = function() {
-    // Checkpoint selector
     initGenericSection('grp-models', 'arr-models', 'bojro_vis_models');
-    
-    // Generation Params Groups
     initGenericSection('grp-xl', 'arr-xl', 'bojro_vis_xl');
     initGenericSection('grp-flux', 'arr-flux', 'bojro_vis_flux');
     initGenericSection('grp-qwen', 'arr-qwen', 'bojro_vis_qwen');
-    
-    // NEW: Trident (Flux) and Modules (Qwen) persistence
     initGenericSection('grp-flux-trident', 'arr-flux-trident', 'bojro_vis_flux_trident');
     initGenericSection('grp-qwen-modules', 'arr-qwen-modules', 'bojro_vis_qwen_modules');
-    
-    // FBC persistence
     initGenericSection('fbc-settings-content', 'fbc-arrow', 'bojro_vis_fbc');
 }
 
@@ -512,7 +485,6 @@ window.initGenericSectionClosed = function(contentId, arrowId, storageKey) {
     const savedState = localStorage.getItem(storageKey);
     const content = document.getElementById(contentId);
     const arrow = document.getElementById(arrowId);
-    // Default CLOSED. Only open if saved as 'open'
     if (savedState === 'open') {
         content.classList.remove('hidden');
         arrow.style.transform = 'rotate(0deg)';
@@ -528,14 +500,12 @@ window.toggleGeneric = function(contentId, arrowId, storageKey) {
     const isHidden = content.classList.contains('hidden');
 
     if (isHidden) {
-        // Open it
         content.classList.remove('hidden');
-        arrow.style.transform = 'rotate(0deg)'; // Arrow points down (v)
+        arrow.style.transform = 'rotate(0deg)'; 
         localStorage.setItem(storageKey, 'open');
     } else {
-        // Close it
         content.classList.add('hidden');
-        arrow.style.transform = 'rotate(-90deg)'; // Arrow points right (>)
+        arrow.style.transform = 'rotate(-90deg)'; 
         localStorage.setItem(storageKey, 'closed');
     }
 }
@@ -545,7 +515,6 @@ window.initGenericSection = function(contentId, arrowId, storageKey) {
     const content = document.getElementById(contentId);
     const arrow = document.getElementById(arrowId);
 
-    // Default is OPEN. Only close if explicitly saved as 'closed'
     if (savedState === 'closed') {
         content.classList.add('hidden');
         arrow.style.transform = 'rotate(-90deg)';

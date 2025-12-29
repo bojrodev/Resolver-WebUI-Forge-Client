@@ -116,6 +116,9 @@ async function fetchModels() {
         });
         const data = await res.json();
         
+        // SORT MODELS ALPHABETICALLY BY NAME
+        data.sort((a, b) => a.model_name.localeCompare(b.model_name, undefined, {sensitivity: 'base'}));
+
         // Helper to safely populate
         const safePopulate = (id, list) => {
             const el = document.getElementById(id);
@@ -218,7 +221,9 @@ async function fetchVaes() {
         });
         const data = await res.json();
         if (data && data.length) {
-            const list = data.map(m => m.model_name);
+            // SORT MODULES ALPHABETICALLY
+            const list = data.map(m => m.model_name).sort((a, b) => a.localeCompare(b, undefined, {sensitivity: 'base'}));
+            
             slots.forEach(sel => {
                 list.forEach(name => {
                     if (name !== "Automatic" && !Array.from(sel.options).some(o => o.value === name)) sel.appendChild(new Option(name, name));

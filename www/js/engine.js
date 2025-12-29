@@ -298,7 +298,16 @@ window.processQueue = async function() {
     if (queueState.ongoing.length === 0) return alert("Queue empty!");
 
     isQueueRunning = true;
-    totalBatchSteps = queueState.ongoing.reduce((acc, job) => acc + ((job.payload.n_iter || 1) * job.payload.steps), 0);
+
+    // FIX: Calculate total batch steps accurately including High-Res passes
+    totalBatchSteps = queueState.ongoing.reduce((acc, job) => {
+        let perImage = job.payload.steps || 0;
+        if (job.payload.enable_hr) {
+            perImage += (job.payload.hr_second_pass_steps || 0);
+        }
+        return acc + ((job.payload.n_iter || 1) * perImage);
+    }, 0);
+
     currentBatchProgress = 0;
 
     document.getElementById('queueProgressBox').classList.remove('hidden');
@@ -430,12 +439,9 @@ async function runJob(job, isBatch = false) {
         btn.innerText = "PROCESSING...";
         await updateBatchNotification("Starting Generation", true, "Initializing...");
 
-        // --- NEW STEP CALCULATION LOGIC ---
+        // --- ACCURATE GLOBAL STEP CALCULATION ---
         let perImageSteps = job.payload.steps;
         if (job.payload.enable_hr) {
-            // Add second pass steps if HR is enabled
-            // Note: If hr_second_pass_steps is 0/null in payload, Forge usually does 50% of base
-            // But since we send explicit values from UI, we trust the payload.
             perImageSteps += (job.payload.hr_second_pass_steps || 0);
         }
         const jobTotalSteps = (job.payload.n_iter || 1) * perImageSteps;
@@ -446,12 +452,10 @@ async function runJob(job, isBatch = false) {
                     headers: getHeaders()
                 });
                 const data = await res.json();
-                if (data.state && data.state.sampling_steps > 0) {
-                    const currentJobIndex = data.state.job_no || 0;
-                    const currentStepInBatch = data.state.sampling_step;
-                    
-                    // We don't recalculate jobStep with the complex formula to avoid desync
-                    // data.state.sampling_step is cumulative for HR jobs usually
+
+                // FIX: Use global progress % to maintain continuous step count across passes
+                if (data.progress > 0) {
+                    const currentStepInBatch = Math.round(data.progress * jobTotalSteps);
                     const msg = `Step ${currentStepInBatch} / ${jobTotalSteps}`;
                     btn.innerText = msg;
                     

@@ -20,6 +20,24 @@
     src: url('./fonts/Inter-ExtraBold.woff2') format('woff2');
 }
 
+/* 1. NEW FONT IMPORT: ORBITRON (For Posh Glitch Header) */
+/* Orbitron Local Definition */
+@font-face {
+    font-family: 'Orbitron';
+    font-style: normal;
+    font-weight: 700; /* Bold */
+    /* Ensure the filename matches exactly what is in your folder */
+    src: url('./fonts/Orbitron-Bold.ttf') format('truetype');
+}
+
+@font-face {
+    font-family: 'Orbitron';
+    font-style: normal;
+    font-weight: 900; /* Black/ExtraBold */
+    /* Ensure the filename matches exactly what is in your folder */
+    src: url('./fonts/Orbitron-Black.ttf') format('truetype');
+}
+
 :root {
     /* --- DARK MODE (DEFAULT - SDXL) --- */
     --bg-app: #0f0518;            /* Deep dark background */
@@ -70,6 +88,20 @@
     --accent-primary-rgb: 0, 229, 255;
     
     --border-color: #1e293b;
+}
+
+/* --- QWEN (NEO) MODE OVERRIDES (ADDED) --- */
+[data-mode="qwen"] {
+    --bg-app: #12050f;            /* Deep Plum Background */
+    --bg-panel: #1f0f1a;          /* Dark Pink Panel */
+    
+    --accent-primary: #ff007f;    /* Neon Pink */
+    --accent-secondary: #ff4081;  /* Hot Pink */
+    --accent-glow: rgba(255, 0, 127, 0.4);
+    --accent-gradient: linear-gradient(135deg, #ff007f, #ff4081);
+    --accent-primary-rgb: 255, 0, 127;
+    
+    --border-color: #3b1e2e;
 }
 
 /* --- LIGHT MODE OVERRIDES --- */
@@ -152,26 +184,73 @@ canvas {
 .c-s { color: var(--accent-secondary); font-weight: bold; }
 
 /* =========================================
-   3. HEADER & TYPOGRAPHY (RESPONSIVE)
+   3. HEADER & TYPOGRAPHY (POSH DESIGN UPGRADE)
    ========================================= */
 .header-row {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 10px;
+    /* Respect Notch/Status Bar and add posh spacing */
+    padding-top: clamp(20px, 6vh, 35px); 
+    margin-bottom: 25px;
 }
 
 h2 {
+    font-family: 'Orbitron', sans-serif !important; /* FIXED: Orbitron */
     text-align: center;
     font-weight: 900;
     margin: 0;
-    font-size: clamp(18px, 6vw, 22px); /* Scales font for different devices */
-    background: var(--accent-gradient);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
+    font-size: clamp(20px, 6.5vw, 26px); 
+    color: var(--text-main);
     text-transform: uppercase;
-    letter-spacing: 1.5px;
+    letter-spacing: 5px;
+    position: relative;
     flex: 1;
+    white-space: nowrap;
+}
+
+/* --- THE CLEAN MODULAR GLITCH EFFECT --- */
+h2::before,
+h2::after {
+    content: attr(data-text);
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: transparent;
+}
+
+/* Glitch layers */
+h2::before {
+    left: 2px;
+    text-shadow: -1.5px 0 var(--error);
+    clip: rect(44px, 450px, 56px, 0);
+    animation: glitch-anim 5s infinite linear alternate-reverse;
+}
+
+h2::after {
+    left: -2px;
+    text-shadow: -1.5px 0 var(--accent-primary);
+    clip: rect(44px, 450px, 56px, 0);
+    animation: glitch-anim2 1.5s infinite linear alternate-reverse;
+}
+
+@keyframes glitch-anim {
+    0% { clip: rect(10px, 9999px, 40px, 0); }
+    20% { clip: rect(30px, 9999px, 60px, 0); }
+    40% { clip: rect(10px, 9999px, 30px, 0); }
+    60% { clip: rect(40px, 9999px, 80px, 0); }
+    80% { clip: rect(20px, 9999px, 50px, 0); }
+    100% { clip: rect(40px, 9999px, 60px, 0); }
+}
+
+@keyframes glitch-anim2 {
+    0% { clip: rect(70px, 9999px, 90px, 0); }
+    25% { clip: rect(10px, 9999px, 40px, 0); }
+    50% { clip: rect(50px, 9999px, 70px, 0); }
+    75% { clip: rect(10px, 9999px, 30px, 0); }
+    100% { clip: rect(60px, 9999px, 80px, 0); }
 }
 
 label {
@@ -189,7 +268,7 @@ label {
 /* =========================================
    4. INPUTS & PREMIUM TOGGLES
    ========================================= */
-input:not([type="checkbox"]):not([type="range"]), 
+input:not([type="checkbox"]):not([type="range"]):not([type="radio"]), 
 select, 
 textarea {
     background: var(--bg-input);
@@ -347,30 +426,35 @@ input[readonly], textarea[readonly] {
     transform: translateY(2px);
 }
 
-/* Primary Generate Button */
-#genBtn {
-    background: var(--accent-gradient);
-    color: #ffffff; /* Always white text on gradient */
-    border: none;
-    padding: 16px;
-    font-size: 16px;
-    font-weight: 900;
-    border-radius: var(--radius-md);
+/* FIX: THEME-AWARE MAIN BUTTON (Applied to Gen & Save) */
+.btn-main, #genBtn, button[onclick="saveConfiguration()"] {
+    background: var(--accent-gradient) !important;
+    color: #ffffff !important; /* Ensure text is white */
+    border: none !important;
+    padding: 16px !important;
+    font-size: 14px !important;
+    font-weight: 900 !important;
+    font-family: 'Orbitron', sans-serif !important;
+    border-radius: var(--radius-md) !important;
     cursor: pointer;
     text-transform: uppercase;
-    letter-spacing: 1px;
-    box-shadow: 0 4px 15px var(--accent-glow);
-    transition: transform 0.1s, box-shadow 0.1s;
+    letter-spacing: 2px;
+    box-shadow: 0 4px 15px var(--accent-glow) !important;
+    transition: all 0.2s ease;
     width: 100%;
-    text-shadow: 0 1px 2px rgba(0,0,0,0.2);
+    text-shadow: 0 1px 2px rgba(0,0,0,0.3) !important;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
 }
 
-#genBtn:active {
+.btn-main:active, #genBtn:active, button[onclick="saveConfiguration()"]:active {
     transform: translateY(2px);
-    box-shadow: none;
+    box-shadow: 0 2px 5px var(--accent-glow) !important;
 }
 
-#genBtn:disabled {
+.btn-main:disabled, #genBtn:disabled {
     background: var(--bg-panel);
     color: var(--text-muted);
     box-shadow: none;
@@ -389,7 +473,7 @@ input[readonly], textarea[readonly] {
     align-items: center;
     justify-content: center;
     gap: 12px; 
-    font-family: 'Inter', sans-serif;
+    font-family: 'Orbitron', sans-serif;
     font-weight: 900;
     font-size: clamp(14px, 5vw, 18px); 
     text-transform: uppercase;
@@ -503,7 +587,76 @@ input[readonly], textarea[readonly] {
 }
 
 /* =========================================
-   6. CONTAINERS & PANELS
+   6. DOCK & NAVIGATION (RESPONSIVE FIX)
+   ========================================= */
+.dock-wrapper {
+    position: fixed;
+    bottom: 20px;
+    left: 0;
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    z-index: 100;
+    padding-bottom: env(safe-area-inset-bottom);
+    pointer-events: none;
+}
+
+.glass-dock {
+    pointer-events: auto;
+    background: var(--bg-panel);
+    border: 1px solid var(--border-color);
+    border-radius: 30px;
+    padding: 10px 20px;
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+    width: 100%;
+    max-width: 500px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.4);
+    gap: 15px;
+}
+
+.dock-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    width: 55px;
+    height: 55px;
+    color: var(--text-muted);
+    border-radius: 18px;
+    cursor: pointer;
+    transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    min-width: 0; /* Important for flex scaling */
+}
+
+.dock-item i { transition: 0.2s; width: 22px; height: 22px; }
+.dock-item span {
+    font-size: 9px;
+    font-weight: 800;
+    margin-top: 4px;
+    opacity: 0.7;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.dock-item.active {
+    background: var(--text-main); /* High contrast active state */
+    color: var(--bg-app);         /* Inverse text color */
+    transform: translateY(-8px) scale(1.1);
+    box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+}
+
+/* FIX: Shrink Navbar and hide labels on extremely small devices */
+@media screen and (max-width: 380px) {
+    .dock-item span { display: none; }
+    .dock-item { height: 48px; width: 48px; border-radius: 50%; }
+    .glass-dock { padding: 6px 10px; border-radius: 40px; gap: 2px; }
+}
+
+/* =========================================
+   7. CONTAINERS & PANELS
    ========================================= */
 .glass-box {
     background: var(--bg-panel);
@@ -545,7 +698,7 @@ input[readonly], textarea[readonly] {
 }
 
 /* =========================================
-   7. COMPLEX WIDGETS
+   8. COMPLEX WIDGETS
    ========================================= */
 
 /* Connection Indicator */
@@ -627,7 +780,7 @@ input[readonly], textarea[readonly] {
 }
 
 /* =========================================
-   8. QUEUE & GALLERY
+   9. QUEUE & GALLERY
    ========================================= */
 .queue-section { margin-bottom: 20px; }
 
@@ -708,7 +861,7 @@ input[readonly], textarea[readonly] {
 }
 
 /* =========================================
-   9. MODALS
+   10. MODALS
    ========================================= */
 .modal {
     position: fixed;
@@ -766,7 +919,7 @@ input[readonly], textarea[readonly] {
 }
 
 /* =========================================
-   10. LORA BROWSER & FOLDER FILTER STYLES
+   11. LORA BROWSER & FOLDER FILTER STYLES
    ========================================= */
 
 /* --- Horizontal Chip Container --- */
@@ -968,72 +1121,6 @@ input[readonly], textarea[readonly] {
 }
 
 /* =========================================
-   11. DOCK & OTHER UTILS
-   ========================================= */
-.dock-wrapper {
-    position: fixed;
-    bottom: 20px;
-    left: 0;
-    width: 100%;
-    display: flex;
-    justify-content: center;
-    z-index: 100;
-    padding-bottom: env(safe-area-inset-bottom);
-    pointer-events: none;
-}
-
-.glass-dock {
-    pointer-events: auto;
-    background: var(--bg-panel);
-    border: 1px solid var(--border-color);
-    border-radius: 30px;
-    padding: 10px 20px;
-    display: flex;
-    gap: 15px;
-    box-shadow: 0 10px 30px rgba(0,0,0,0.4);
-}
-
-.dock-item {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    width: 55px;
-    height: 55px;
-    color: var(--text-muted);
-    border-radius: 18px;
-    cursor: pointer;
-    transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-}
-
-.dock-item i { transition: 0.2s; }
-.dock-item span {
-    font-size: 9px;
-    font-weight: 800;
-    margin-top: 4px;
-    opacity: 0.7;
-}
-
-.dock-item.active {
-    background: var(--text-main); /* High contrast active state */
-    color: var(--bg-app);         /* Inverse text color */
-    transform: translateY(-8px) scale(1.1);
-    box-shadow: 0 5px 15px rgba(0,0,0,0.2);
-}
-
-.badge {
-    position: absolute;
-    top: -5px; right: -5px;
-    background: var(--accent-primary);
-    color: #000;
-    font-size: 10px;
-    font-weight: bold;
-    padding: 2px 6px;
-    border-radius: 10px;
-    border: 2px solid var(--bg-panel);
-}
-
-/* =========================================
    12. LIGHTBOX / UPLOAD
    ========================================= */
 #fullScreenModal {
@@ -1215,150 +1302,140 @@ input[readonly], textarea[readonly] {
 }
 
 /* =========================================
-   15. SETTINGS PAGE STYLING
+   15. CONFIGURATION & SETTINGS TAB (INDUSTRIAL MATCH)
    ========================================= */
 
 #view-cfg {
-    max-width: 500px;
+    max-width: 600px;
     margin: 0 auto;
+    width: 100%;
 }
 
-#view-cfg .glass-box {
-    background: var(--bg-panel);
-    border: 1px solid var(--glass-border);
-    border-radius: var(--radius-lg);
-    box-shadow: var(--shadow-soft);
-}
-
-#view-cfg h3 {
-    text-align: center;
-    margin-bottom: 25px;
-    font-size: 16px;
+/* Section Header Matching */
+#view-cfg .grp-header span {
+    font-size: 11px;
     font-weight: 900;
-    color: var(--text-main);
+    color: var(--text-muted);
     text-transform: uppercase;
-    letter-spacing: 1px;
+    letter-spacing: 1.5px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
 }
 
+/* Content Padding consistency */
+#view-cfg .grp-content {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    padding: 20px;
+}
+
+/* Input matching for Settings */
 #view-cfg input[type="text"],
-#view-cfg input[type="number"] {
+#view-cfg input[type="number"],
+#view-cfg input[type="password"] {
     background: var(--bg-input);
     border: 1px solid var(--border-color);
     color: var(--text-main);
     padding: 12px;
     border-radius: var(--radius-sm);
-    font-family: monospace;
+    font-family: 'monospace';
     font-size: 14px;
     width: 100%;
-    transition: all 0.2s ease;
 }
 
-#view-cfg input[type="text"]:focus,
-#view-cfg input[type="number"]:focus {
-    outline: none;
+#view-cfg input:focus {
     border-color: var(--accent-primary);
-    box-shadow: 0 0 0 2px rgba(var(--accent-primary-rgb), 0.2);
+    background: var(--bg-input-focus);
 }
 
-#view-cfg label {
-    font-size: 12px;
-    font-weight: 700;
-    color: var(--text-muted);
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    margin-bottom: 8px;
+/* FIX: RADIO BUTTON ALIGNMENT */
+#view-cfg .radio-group {
+    display: flex;
+    gap: 20px;
+    align-items: center;
+    padding: 8px 0;
+}
+
+#view-cfg .radio-item {
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: 10px;
 }
 
-#view-cfg .col > div {
-    margin-bottom: 20px;
-}
-
-#view-cfg .col > div:last-child {
-    margin-bottom: 0;
-}
-
-/* Port inputs styling */
-#view-cfg input[type="number"] {
-    text-align: center;
-    font-weight: bold;
-}
-
-/* Configuration sections */
-#view-cfg .col > div[style*="border-top"] {
-    border-top: 1px solid var(--border-color) !important;
-    padding-top: 20px !important;
-    margin-top: 20px !important;
-}
-
-/* Save button styling */
-#view-cfg button[onclick="saveConfiguration()"] {
-    height: 50px;
-    font-size: 14px;
-    font-weight: 900;
-    text-transform: uppercase;
-    letter-spacing: 1px;
-    border: none;
-    border-radius: var(--radius-md);
+/* Ensure labels inside radios don't inherit heavy margins */
+#view-cfg .radio-item label {
+    margin: 0 !important;
+    font-size: 13px !important;
+    font-weight: 500 !important;
+    text-transform: none !important;
     cursor: pointer;
-    transition: all 0.3s ease;
-    box-shadow: 0 4px 15px rgba(var(--accent-primary-rgb), 0.3);
+    line-height: 1;
+    color: var(--text-main);
 }
 
-#view-cfg button[onclick="saveConfiguration()"]:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 6px 20px rgba(var(--accent-primary-rgb), 0.4);
-}
-
-#view-cfg button[onclick="saveConfiguration()"]:active {
-    transform: translateY(0);
-    box-shadow: 0 2px 10px rgba(var(--accent-primary-rgb), 0.3);
-}
-
-/* System buttons styling */
-#view-cfg button[onclick*="Battery"],
-#view-cfg button[onclick*="resetAppConfig"] {
-    border: 1px solid;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    transition: all 0.2s ease;
-}
-
-#view-cfg button[onclick*="Battery"]:hover,
-#view-cfg button[onclick*="resetAppConfig"]:hover {
-    transform: translateY(-1px);
-}
-
-/* Protocol radio buttons */
+/* Custom styling for the radio circle to look high-end */
 #view-cfg input[type="radio"] {
+    appearance: none;
     width: 18px;
     height: 18px;
-    margin: 0;
-    padding: 0;
-    accent-color: var(--accent-primary);
+    border: 2px solid var(--border-color);
+    border-radius: 50%;
+    background: var(--bg-input);
     cursor: pointer;
-    vertical-align: middle;
-    position: relative;
-}
-
-#view-cfg input[type="radio"]:hover {
-    transform: scale(1.1);
+    display: grid;
+    place-content: center;
+    transition: all 0.2s ease;
+    margin: 0;
 }
 
 #view-cfg input[type="radio"]:checked {
-    background-color: var(--accent-primary);
     border-color: var(--accent-primary);
+    box-shadow: 0 0 8px var(--accent-glow);
 }
 
 #view-cfg input[type="radio"]::before {
-    content: '';
-    display: none;
+    content: "";
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    transform: scale(0);
+    transition: 120ms transform ease-in-out;
+    background-color: var(--accent-primary);
 }
 
-#view-cfg input[type="radio"]::after {
-    content: '';
-    display: none;
+#view-cfg input[type="radio"]:checked::before {
+    transform: scale(1);
 }
+
+/* Toggle rows for preferences */
+#view-cfg .toggle-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: rgba(255,255,255,0.02);
+    padding: 15px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border-color);
+}
+
+/* Configuration badges and metadata */
+#view-cfg .cfg-badge {
+    text-align: center;
+    color: var(--text-muted);
+    font-size: 10px;
+    margin-top: 20px;
+    opacity: 0.6;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+}
+
+/* LLM linking layout */
+.llm-link-row {
+    display: flex;
+    gap: 10px;
+    align-items: stretch;
+}
+.llm-link-row select { flex: 2; height: 45px; }
+.llm-link-row button { flex: 1; height: 45px; font-weight: 800; font-size: 11px; }
