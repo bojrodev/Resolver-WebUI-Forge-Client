@@ -419,25 +419,16 @@ window.generateLlmPrompt = async function() {
     
     try {
         const payload = {
-    model: model || "default",
-    messages: [
-        {
-            role: "system",
-            content: sysPrompt // Your 2k token prompt
-        }, 
-        {
-            role: "user",
-            content: inputVal
-        }
-    ],
-    temperature: 0.8,      // Keeps output focused on instructions
-    max_tokens: 300,       // Limits output to ~150-180 words max
-    top_p: 0.9,            // Standard diversity setting
-    repetition_penalty: 1.2, // Helps prevent the "repetitive loops" problem
-    stream: false
-};
-        const headers = {
-            'Content-Type': 'application/json'
+            model: model || "default",
+            messages: [
+                { role: "system", content: sysPrompt }, 
+                { role: "user", content: inputVal }
+            ],
+            temperature: 0.8,
+            max_tokens: 300,
+            top_p: 0.9,
+            repetition_penalty: 1.2,
+            stream: false
         };
         
         const headers = { 'Content-Type': 'application/json' };
