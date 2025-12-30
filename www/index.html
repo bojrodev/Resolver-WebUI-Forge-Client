@@ -686,6 +686,70 @@
             </div>
         </div>
 
+        <div id="view-comfy" class="hidden">
+            <div class="glass-box" style="padding: 10px 20px;">
+                <div class="row" style="justify-content: flex-end; margin-bottom: 5px;">
+                    <button onclick="switchTab('cfg')" class="btn-icon" style="width: 24px; height: 24px;">
+                        <i data-lucide="settings-2" size="12"></i>
+                    </button>
+                </div>
+
+                <button id="comfyConnectBtn" onclick="connectToComfy()" class="brick-btn">
+                    <i data-lucide="plug"></i> CONNECT TO COMFYUI
+                </button>
+            </div>
+
+            <div class="glass-box">
+                <div class="row" style="justify-content:space-between; margin-bottom: 5px;">
+                    <label><i data-lucide="file-json" size="12"></i> ACTIVE TEMPLATE</label>
+                    <button onclick="unloadComfyTemplate()" class="btn-icon" style="width:24px; height:24px; color:#f44336; border-color:#f44336;" title="Unload Template">
+                        <i data-lucide="trash-2" size="12"></i>
+                    </button>
+                </div>
+
+                <div id="comfyLoadedFileName" style="text-align: center; font-size: 11px; color: var(--accent-primary); font-family: monospace; margin: 10px 0; padding: 10px; background: rgba(0,0,0,0.2); border-radius: 4px;">
+                    NO TEMPLATE LOADED
+                </div>
+
+                <input type="file" id="comfyWorkflowFile" accept=".json" class="hidden" onchange="loadWorkflowFile(event)">
+                <button onclick="document.getElementById('comfyWorkflowFile').click()" class="btn-small dashed">
+                    LOAD NEW TEMPLATE
+                </button>
+            </div>
+
+            <div id="comfy-dynamic-controls" class="col" style="gap: 10px;"></div>
+
+            <div class="row" style="margin-top: 10px; margin-bottom: 20px;">
+                <button id="comfyQueueBtn" onclick="queueComfyPrompt()" class="btn-main" disabled>
+                    <i data-lucide="play"></i> GENERATE
+                </button>
+                <button onclick="interruptComfy()" class="btn-small" style="background: rgba(244, 67, 54, 0.15); color: #f44336; border-color: rgba(244, 67, 54, 0.3); width: auto; height: 100%;">
+                    <i data-lucide="square"></i>
+                </button>
+            </div>
+
+            <div class="glass-box" id="comfy-result-area">
+                <div class="row" style="justify-content: space-between; margin-bottom: 5px;">
+                    <label style="color:var(--accent-primary)">🔴 LIVE MONITOR</label>
+                    <span id="comfyProgressText" style="font-size: 10px; color: var(--text-muted); font-family: monospace;">IDLE</span>
+                </div>
+                <div style="width: 100%; height: 4px; background: var(--bg-input); border-radius: 2px; overflow: hidden; margin-bottom: 10px;">
+                    <div id="comfyProgressBar" style="width: 0%; height: 100%; background: var(--accent-primary); transition: width 0.2s;"></div>
+                </div>
+                <div style="background: #000; border-radius: var(--radius-sm); min-height: 200px; display: flex; align-items: center; justify-content: center; overflow: hidden; border: 1px solid var(--border-color);">
+                    <img id="comfyLivePreview" style="max-width: 100%; opacity: 0.3;">
+                </div>
+
+                <div style="margin-top: 20px; border-top: 1px solid var(--border-color); padding-top: 10px;">
+                    <div class="row" style="justify-content: space-between;">
+                        <label style="color:var(--success)">✅ FINISHED OUTPUTS</label>
+                        <button onclick="clearComfyResults()" class="btn-small" style="padding:2px 8px; font-size:9px;">CLEAR</button>
+                    </div>
+                    <div id="comfyGalleryContainer" class="gallery-grid"></div>
+                </div>
+            </div>
+        </div>
+
         <div id="view-que" class="hidden">
             <div id="queueProgressBox" class="glass-box hidden" style="padding: 10px; margin-bottom: 10px;">
                 <div class="row" style="justify-content: space-between;">
@@ -819,6 +883,10 @@
                             <label style="margin: 0; min-width: 60px;">Wake</label>
                             <input type="number" id="cfgPortWake" value="5000" style="flex: 1; font-family: monospace;">
                         </div>
+                        <div class="row" style="align-items: center; gap: 10px;">
+                            <label style="margin: 0; min-width: 60px;">Comfy</label>
+                            <input type="number" id="cfgPortComfy" value="8188" style="flex: 1; font-family: monospace;">
+                        </div>
                     </div>
                 </div>
 
@@ -839,6 +907,10 @@
                         <div class="col" style="align-items: center;">
                             <label style="margin-bottom:8px;">QWEN</label>
                             <input type="checkbox" id="cfgShowQwen" class="bojro-switch" checked onchange="saveModelVisibility()">
+                        </div>
+                        <div class="col" style="align-items: center;">
+                            <label style="margin-bottom:8px; color:var(--accent-secondary);">COMFY</label>
+                            <input type="checkbox" id="cfgShowComfy" class="bojro-switch" onchange="saveModelVisibility()">
                         </div>
                     </div>
                 </div>
@@ -1052,18 +1124,17 @@
 
     <div class="dock-wrapper">
         <div class="glass-dock">
-            <div class="dock-item active" onclick="switchTab('gen')"><i data-lucide="zap"></i><span>GEN</span></div>
-            <div class="dock-item" onclick="switchTab('inp')"><i data-lucide="brush"></i><span>INP</span></div>
-            <div class="dock-item" onclick="switchTab('que')">
-                <div style="position: relative;">
-                    <i data-lucide="layers"></i>
-                    <div id="queueBadge" class="badge hidden">0</div>
-                </div>
-                <span>QUE</span>
+            <div class="dock-item active" id="dock-gen" onclick="switchTab('gen')"><i data-lucide="zap"></i><span>GEN</span></div>
+            <div class="dock-item" id="dock-inp" onclick="switchTab('inp')"><i data-lucide="brush"></i><span>INP</span></div>
+            <div class="dock-item" id="dock-que" onclick="switchTab('que')"><i data-lucide="layers"></i><span>QUE</span></div>
+            <div class="dock-item" id="dock-gal" onclick="switchTab('gal')"><i data-lucide="image"></i><span>GAL</span></div>
+            <div class="dock-item" id="dock-ana" onclick="switchTab('ana')"><i data-lucide="scan-line"></i><span>ANA</span></div>
+            
+            <div class="dock-item hidden" id="dock-comfy" onclick="switchTab('comfy')">
+                <i data-lucide="workflow"></i><span>CMFY</span>
             </div>
-            <div class="dock-item" onclick="switchTab('gal')"><i data-lucide="image"></i><span>GAL</span></div>
-            <div class="dock-item" onclick="switchTab('ana')"><i data-lucide="scan-line"></i><span>ANA</span></div>
-            <div class="dock-item" onclick="switchTab('cfg')"><i data-lucide="settings"></i><span>CFG</span></div>
+            
+            <div class="dock-item" id="dock-cfg" onclick="switchTab('cfg')"><i data-lucide="settings"></i><span>CFG</span></div>
         </div>
     </div>
 
@@ -1076,6 +1147,7 @@
     <script src="js/cfg.js"></script>
     <script src="js/network.js"></script>
     <script src="js/engine.js"></script>
+    <script src="js/comfy_logic.js"></script>
     <script src="js/boot.js"></script>
 </body>
 </html>

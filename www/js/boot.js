@@ -11,8 +11,7 @@ window.onload = function() {
             lucide.createIcons();
         }
 
-        // FIX (Issue 1): Battery Optimization Check MOVED UP
-        // Performed early to ensure it appears regardless of loading errors elsewhere
+        // Battery Optimization Check
         if (!localStorage.getItem('bojroBatteryOpt')) {
             const batteryModal = document.getElementById('batteryModal');
             if (batteryModal) {
@@ -22,21 +21,19 @@ window.onload = function() {
         }
 
         // 2. Initialize Database
-        // (Defined in utils.js)
         if (typeof initDatabase === 'function') {
             initDatabase();
         }
 
-        // 3. Load Centralized Configuration First
+        // 3. Load Centralized Configuration
         loadConnectionConfig();    // cfg.js
         
-        // 4. First-Run Configuration Check
+        // 4. First-Run Check
         if (!connectionConfig.isConfigured) {
             console.log("First run detected - showing configuration");
-            // Force CFG tab on first run
             setTimeout(() => {
                 switchTab('cfg');
-                if (Toast) Toast.show({
+                if (typeof Toast !== 'undefined') Toast.show({
                     text: 'Welcome! Please configure your connection settings',
                     duration: 'long',
                     position: 'center'
@@ -45,31 +42,31 @@ window.onload = function() {
         }
         
         // 5. Load Saved Settings & State
-        injectConfigModal();       // ui.js
-        loadHostIp();              // network.js (now uses centralized config)
-        loadQueueState();          // utils.js
-        renderQueueAll();          // engine.js
-        loadAutoDlState();         // ui.js
-        loadLlmSettings();         // ui.js
-        loadPowerSettings();       // ui.js
-        loadSavedPrompts();        // ui.js - RESTORE PROMPTS
+        if (typeof injectConfigModal === 'function') injectConfigModal();
+        if (typeof loadHostIp === 'function') loadHostIp();
+        if (typeof loadQueueState === 'function') loadQueueState();
+        if (typeof renderQueueAll === 'function') renderQueueAll();
+        if (typeof loadAutoDlState === 'function') loadAutoDlState();
+        if (typeof loadLlmSettings === 'function') loadLlmSettings();
+        if (typeof loadPowerSettings === 'function') loadPowerSettings();
+        if (typeof loadSavedPrompts === 'function') loadSavedPrompts();
 
         // 6. Setup Background & Notifications
-        setupBackgroundListeners(); // utils.js
-        createNotificationChannel();// utils.js
+        if (typeof setupBackgroundListeners === 'function') setupBackgroundListeners();
+        if (typeof createNotificationChannel === 'function') createNotificationChannel();
 
         // 7. Initialize Graphics Engine
-        initMainCanvas();          // editor.js
-        setupEditorEvents();       // editor.js
+        if (typeof initMainCanvas === 'function') initMainCanvas();
+        if (typeof setupEditorEvents === 'function') setupEditorEvents();
         
         // 8. Request Capacitor Notification Access (Android) - System Check
-        if (LocalNotifications) {
+        if (typeof LocalNotifications !== 'undefined' && LocalNotifications) {
             LocalNotifications.checkPermissions().then(perm => {
                 console.log("Notification Perm Status:", perm.display);
-            });
+            }).catch(e => console.warn("Notif check failed:", e));
         }
         
-        // 9. Acquire Wake Lock (Prevent screen sleep during generation)
+        // 9. Acquire Wake Lock
         if ("wakeLock" in navigator) {
             navigator.wakeLock.request('screen').then(wakeLock => {
                 console.log("Wake lock acquired");
@@ -81,81 +78,107 @@ window.onload = function() {
             console.log("Wake Lock API not supported");
         }
         
-        // 10. Acquire WiFi Lock (Prevent WiFi disconnect during generation)
+        // 10. Acquire WiFi Lock
         if ('connection' in navigator && 'saveData' in navigator.connection) {
             try {
-                navigator.connection.saveData = false; // Request high power mode
-                console.log("WiFi lock enabled - high power mode");
+                navigator.connection.saveData = false;
+                console.log("WiFi lock enabled");
             } catch (error) {
                 console.log("WiFi lock not available:", error);
             }
-        } else {
-            console.log("WiFi Lock API not supported");
         }
         
-        // 11. Release locks when app becomes visible again
+        // 11. Release locks on visibility change
         document.addEventListener('visibilitychange', () => {
             if (document.visibilityState === 'visible' && globalWakeLock) {
-                console.log("Releasing wake lock - app visible");
                 globalWakeLock.release();
                 globalWakeLock = null;
             }
         });
 
-        // 12. Auto-Connect if configuration is complete
+        // 12. Auto-Connect
         if (connectionConfig.isConfigured && connectionConfig.baseIp) {
-            console.log("Auto-connecting with centralized config...");
-            window.connect(true); // network.js (now uses centralized config)
+            console.log("Auto-connecting...");
+            window.connect(true);
         } else if (document.getElementById('hostIp') && document.getElementById('hostIp').value) {
-            // Fallback to legacy auto-connect
-            console.log("Auto-connecting with legacy config...");
-            window.connect(true); // network.js
+            window.connect(true);
         }
 
         // =========================================================================
-        // NEO BRIDGE: CONNECTS LORA.JS TO APP.JS
-        // Allows the external LoraManager to inject prompts into the active UI
+        // 13. SPA NAVIGATION OVERRIDE (CRITICAL FOR SEAMLESS COMFYUI)
+        // =========================================================================
+        window.switchTab = function(view) {
+            // List of all valid view IDs
+            const views = ['gen', 'inp', 'que', 'gal', 'ana', 'cfg', 'comfy'];
+            
+            // 1. Hide all views and deactivate all dock items
+            views.forEach(v => {
+                const el = document.getElementById('view-' + v);
+                if (el) el.classList.add('hidden');
+                
+                const dock = document.getElementById('dock-' + v);
+                if (dock) dock.classList.remove('active');
+            });
+
+            // 2. Show the selected view
+            const target = document.getElementById('view-' + view);
+            if (target) target.classList.remove('hidden');
+            
+            const targetDock = document.getElementById('dock-' + view);
+            if (targetDock) targetDock.classList.add('active');
+
+            // 3. Trigger specific view logic
+            if (view === 'cfg') loadConnectionConfig();
+            if (view === 'gal' && typeof loadGallery === 'function') loadGallery();
+            
+            // 4. Auto-Connect ComfyUI if opened and not connected
+            if (view === 'comfy' && typeof connectToComfy === 'function') {
+                // Only connect if we have a host but no active socket
+                const savedHost = localStorage.getItem('comfyHost');
+                if(savedHost && (!window.comfySocket || window.comfySocket.readyState !== WebSocket.OPEN)) {
+                    // Slight delay to allow UI to render
+                    setTimeout(connectToComfy, 100); 
+                }
+            }
+        };
+
+        // =========================================================================
+        // 14. NEO BRIDGE
         // =========================================================================
         if (!window.Neo) window.Neo = {};
         
         window.Neo.appInjectConfig = async function(alias, name, textArea) {
-            // 1. Get path from the LoraManager (if available)
             const loraEntry = window.LoraManager && window.LoraManager.allLoras 
                 ? window.LoraManager.allLoras.find(l => l.name === name) 
                 : null;
 
             let config = loraConfigs[name];
 
-            // 2. Fetch Config if missing, using the helper
             if (!config && loraEntry && loraEntry.path) {
-                if (Toast) Toast.show({
-                    text: 'Fetching config...',
-                    duration: 'short'
-                });
+                if (typeof Toast !== 'undefined') Toast.show({ text: 'Fetching config...', duration: 'short' });
                 config = await loadSidecarConfig(name, loraEntry.path);
             }
 
-            // 3. Build Tag
             const weight = config ? config.weight : 1.0;
             const trigger = config && config.trigger ? ` ${config.trigger}` : "";
             const tag = ` <lora:${alias}:${weight}>${trigger}`;
 
-            // 4. Inject into Text Area
             if (!textArea.value.includes(`<lora:${alias}:`)) {
                 textArea.value = textArea.value.trim() + tag;
-                if (Toast) Toast.show({
-                    text: `Added ${alias}`,
-                    duration: 'short'
-                });
+                if (typeof Toast !== 'undefined') Toast.show({ text: `Added ${alias}`, duration: 'short' });
             } else {
-                if (Toast) Toast.show({
-                    text: `Already added`,
-                    duration: 'short'
-                });
+                if (typeof Toast !== 'undefined') Toast.show({ text: `Already added`, duration: 'short' });
             }
 
-            document.getElementById('loraModal').classList.add('hidden');
+            const loraModal = document.getElementById('loraModal');
+            if (loraModal) loraModal.classList.add('hidden');
         };
+
+        // --- 15. HANDLE HASH NAVIGATION (Fallback) ---
+        const hash = window.location.hash.replace('#', '');
+        if (hash && ['gen','inp','que','gal','ana','cfg','comfy'].includes(hash)) {
+            setTimeout(() => switchTab(hash), 150);
+        }
 
         console.log("App Initialized Successfully");
     } catch (e) {

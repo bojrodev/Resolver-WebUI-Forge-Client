@@ -21,6 +21,10 @@ function loadConnectionConfig() {
     
     const elWake = document.getElementById('cfgPortWake');
     if (elWake) elWake.value = connectionConfig.portWake || 5000;
+
+    // NEW: Comfy Port
+    const elComfy = document.getElementById('cfgPortComfy');
+    if (elComfy) elComfy.value = connectionConfig.portComfy || 8188;
     
     // Update Toggle Switch for Remote/External Mode
     const elMode = document.getElementById('cfgModeSwitch');
@@ -87,8 +91,14 @@ function buildWakeUrl() {
     return constructServiceUrl(connectionConfig.portWake || 5000);
 }
 
+// NEW: Comfy URL Builder
+function buildComfyUrl() {
+    return constructServiceUrl(connectionConfig.portComfy || 8188);
+}
+
 // Update connection status display
 function updateConnectionStatus(service, status) {
+    if(!connectionState) return;
     connectionState[service] = status;
     
     // Update UI elements based on service
@@ -158,6 +168,7 @@ window.saveConfiguration = function() {
     const portWebUI = document.getElementById('cfgPortWebUI').value ? parseInt(document.getElementById('cfgPortWebUI').value) : '';
     const portLlm = document.getElementById('cfgPortLlm').value ? parseInt(document.getElementById('cfgPortLlm').value) : '';
     const portWake = document.getElementById('cfgPortWake').value ? parseInt(document.getElementById('cfgPortWake').value) : '';
+    const portComfy = document.getElementById('cfgPortComfy').value ? parseInt(document.getElementById('cfgPortComfy').value) : ''; // NEW
     
     // Validation
     if (!baseIp) {
@@ -179,13 +190,19 @@ window.saveConfiguration = function() {
         alert('Please enter a valid Wake port (1-65535)');
         return;
     }
+
+    if (portComfy && (isNaN(portComfy) || portComfy < 1 || portComfy > 65535)) {
+        alert('Please enter a valid Comfy port (1-65535)');
+        return;
+    }
     
     // Save configuration
     connectionConfig.baseIp = baseIp;
-    connectionConfig.isRemote = isRemote; // Save toggle state
+    connectionConfig.isRemote = isRemote; 
     connectionConfig.portWebUI = portWebUI !== '' ? portWebUI : null; 
     connectionConfig.portLlm = portLlm !== '' ? portLlm : null;    
-    connectionConfig.portWake = portWake !== '' ? portWake : null; 
+    connectionConfig.portWake = portWake !== '' ? portWake : null;
+    connectionConfig.portComfy = portComfy !== '' ? portComfy : null; // NEW
     connectionConfig.isConfigured = true;
     
     saveConnectionConfig();
@@ -197,6 +214,10 @@ window.saveConfiguration = function() {
     localStorage.setItem('bojroHostIp', HOST);
     localStorage.setItem('bojro_power_ip', buildWakeUrl());
     
+    // Also update Comfy Host immediately if using centralized config
+    const comfyUrl = buildComfyUrl();
+    localStorage.setItem('comfyHost', comfyUrl.replace('http://','').replace('https://',''));
+
     if (Toast) Toast.show({
         text: 'Configuration Saved Successfully',
         duration: 'short'
@@ -216,6 +237,8 @@ window.resetAppConfig = function() {
         localStorage.removeItem('bojro_power_ip');
         localStorage.removeItem('bojroLlmConfig');
         localStorage.removeItem('bojroBatteryOpt');
+        localStorage.removeItem('bojro_model_visibility'); 
+        localStorage.removeItem('comfyHost');
         
         // Reset global variables
         connectionConfig = {
@@ -223,6 +246,7 @@ window.resetAppConfig = function() {
             portWebUI: 7860,
             portLlm: 1234,
             portWake: 5000,
+            portComfy: 8188,
             isRemote: false,
             isConfigured: false
         };
@@ -250,7 +274,6 @@ window.connectToWebUI = async function() {
         return;
     }
     
-    // FIX (Issue 2): Trigger Notification Permission Request IMMEDIATELY upon interaction
     if (LocalNotifications) {
         try {
             const perm = await LocalNotifications.requestPermissions();
@@ -332,7 +355,6 @@ window.connectToLlmService = async function() {
             
             // Update LLM settings for backward compatibility
             llmSettings.baseUrl = url;
-            // Manually save settings without depending on legacy DOM elements
             localStorage.setItem('bojroLlmConfig', JSON.stringify(llmSettings));
             
             updateConnectionStatus('llm', 'connected');
@@ -374,7 +396,6 @@ window.sendPowerSignal = async function() {
     });
     
     try {
-        // STANDARD FETCH
         await fetch(serverUrl, {
             method: 'POST'
         });
@@ -400,7 +421,6 @@ window.sendPowerSignal = async function() {
 
 // Initialize configuration on page load
 document.addEventListener('DOMContentLoaded', function() {
-    // Load configuration if CFG elements exist
     if (document.getElementById('cfgBaseIp')) {
         loadConnectionConfig();
     }
@@ -415,7 +435,6 @@ document.addEventListener('DOMContentLoaded', function() {
 // Add CFG tab support to switchTab function
 const originalSwitchTab = window.switchTab;
 window.switchTab = function(view) {
-    // Call original function first
     if (originalSwitchTab) {
         originalSwitchTab(view);
     }
@@ -424,30 +443,30 @@ window.switchTab = function(view) {
     if (view === 'cfg') {
         const items = document.querySelectorAll('.dock-item');
         items.forEach(item => item.classList.remove('active'));
-        items[5].classList.add('active'); // 6th item (0-indexed)
+        // Find 6th item safely
+        if(items.length > 5) items[5].classList.add('active'); 
         
         // Load configuration into UI
         loadConnectionConfig();
     }
 };
 
-// --- INTERFACE VISIBILITY LOGIC ---
+// --- INTERFACE VISIBILITY LOGIC (UPDATED FOR COMFY) ---
 
 window.loadModelVisibility = function() {
-    // Default to all true if not saved
     const saved = localStorage.getItem('bojro_model_visibility');
-    const config = saved ? JSON.parse(saved) : { xl: true, flux: true, qwen: true };
+    const config = saved ? JSON.parse(saved) : { xl: true, flux: true, qwen: true, comfy: false };
 
-    // Set Checkbox States
     const elXl = document.getElementById('cfgShowXl');
     const elFlux = document.getElementById('cfgShowFlux');
     const elQwen = document.getElementById('cfgShowQwen');
+    const elComfy = document.getElementById('cfgShowComfy'); 
 
     if (elXl) elXl.checked = config.xl;
     if (elFlux) elFlux.checked = config.flux;
     if (elQwen) elQwen.checked = config.qwen;
+    if (elComfy) elComfy.checked = config.comfy; 
 
-    // Apply to UI
     applyModelVisibility(config);
 }
 
@@ -455,7 +474,8 @@ window.saveModelVisibility = function() {
     const config = {
         xl: document.getElementById('cfgShowXl').checked,
         flux: document.getElementById('cfgShowFlux').checked,
-        qwen: document.getElementById('cfgShowQwen').checked
+        qwen: document.getElementById('cfgShowQwen').checked,
+        comfy: document.getElementById('cfgShowComfy').checked 
     };
     localStorage.setItem('bojro_model_visibility', JSON.stringify(config));
     applyModelVisibility(config);
@@ -465,9 +485,11 @@ function applyModelVisibility(config) {
     const btnXl = document.getElementById('btn-xl');
     const btnFlux = document.getElementById('btn-flux');
     const btnQwen = document.getElementById('btn-qwen');
+    const dockComfy = document.getElementById('dock-comfy'); 
 
-    // Toggle hidden class based on config
     if (btnXl) config.xl ? btnXl.classList.remove('hidden') : btnXl.classList.add('hidden');
     if (btnFlux) config.flux ? btnFlux.classList.remove('hidden') : btnFlux.classList.add('hidden');
     if (btnQwen) config.qwen ? btnQwen.classList.remove('hidden') : btnQwen.classList.add('hidden');
+    
+    if (dockComfy) config.comfy ? dockComfy.classList.remove('hidden') : dockComfy.classList.add('hidden');
 }
