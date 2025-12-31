@@ -1,5 +1,5 @@
 /* =========================================
-   1. FONTS & DYNAMIC THEME ENGINE (RESTORED BG)
+   1. FONTS & DYNAMIC THEME ENGINE
    ========================================= */
 @font-face { font-family: 'Inter'; font-style: normal; font-weight: 400; src: url('./fonts/Inter-Regular.woff2') format('woff2'); }
 @font-face { font-family: 'Inter'; font-style: normal; font-weight: 600; src: url('./fonts/Inter-SemiBold.woff2') format('woff2'); }
@@ -8,21 +8,20 @@
 @font-face { font-family: 'Orbitron'; font-style: normal; font-weight: 900; src: url('./fonts/Orbitron-Black.ttf') format('truetype'); }
 
 :root {
-    /* --- 1. DEFAULT THEME: SDXL (VIOLET VENOM) --- */
-    /* EXACT Old Gradient */
+    /* --- 1. DEFAULT THEME: SDXL (DARK) --- */
     --bg-gradient: linear-gradient(135deg, #0f0518 0%, #2a0a38 50%, #000000 100%);    
-    --hue-primary: #a855f7;   /* Purple */
-    --hue-secondary: #ec4899; /* Pink */
+    --hue-primary: #a855f7;
+    --hue-secondary: #ec4899;
     
     --accent-primary: #d946ef;
     --accent-gradient: linear-gradient(135deg, #d946ef, #8b5cf6);
     --accent-glow: 0 0 20px rgba(217, 70, 239, 0.4);
 
-    /* Base Colors */
-    --bg-glass: rgba(30, 30, 35, 0.60);
-    --bg-glass-heavy: rgba(15, 15, 20, 0.90);
-    --bg-input: rgba(0, 0, 0, 0.4); 
-    --bg-input-focus: rgba(0, 0, 0, 0.6);
+    /* Lag-Free Base Colors */
+    --bg-glass: rgba(30, 30, 35, 0.92);
+    --bg-glass-heavy: rgba(15, 15, 20, 0.98);
+    --bg-input: rgba(0, 0, 0, 0.5); 
+    --bg-input-focus: rgba(0, 0, 0, 0.8);
 
     --text-main: #ffffff;
     --text-muted: #94a3b8;
@@ -39,50 +38,49 @@
     --ease-ios: cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }
 
-/* --- 2. FLUX THEME: THUNDER ICE --- */
+/* --- 2. FLUX THEME --- */
 [data-mode="flux"] {
-    /* EXACT Old Gradient */
     --bg-gradient: linear-gradient(135deg, #020810 0%, #0b1e3b 40%, #000000 100%);
-    
     --accent-primary: #00f2ff;
     --accent-gradient: linear-gradient(135deg, #00f2ff, #0061ff);
     --accent-glow: 0 0 20px rgba(0, 242, 255, 0.4);
 }
 
-/* --- 3. QWEN THEME: REAL BLOOD (No Brown) --- */
+/* --- 3. QWEN THEME --- */
 [data-mode="qwen"] {
-    /* Rich Crimson to Deep Black (No Muddy Brown) */
     --bg-gradient: linear-gradient(135deg, #2d0000 0%, #5c0000 40%, #000000 100%);
-    
-    --accent-primary: #ff003c; /* Bright Arterial Red */
+    --accent-primary: #ff003c;
     --accent-gradient: linear-gradient(135deg, #ff003c, #8a0000);
     --accent-glow: 0 0 25px rgba(255, 0, 60, 0.6);
 }
 
-/* --- 4. COMFY THEME: GREEN HULK (Gamma Radiation) --- */
+/* --- 4. COMFY THEME --- */
 [data-mode="comfy"] {
-    /* Deep Toxic Swamp Gradient */
     --bg-gradient: linear-gradient(135deg, #051005 0%, #0f2e0f 40%, #000000 100%);
-    
-    /* Neon Gamma Green */
     --accent-primary: #76ff03; 
-    
-    /* Darker Radioactive Green */
     --accent-secondary: #1b5e20; 
-    
     --accent-gradient: linear-gradient(135deg, #76ff03, #1b5e20);
     --accent-primary-rgb: 118, 255, 3;
-    
-    /* Radioactive Glow */
     --accent-glow: 0 0 25px rgba(118, 255, 3, 0.5);
-    
-    /* Tinted Glass for this mode */
-    --bg-glass: rgba(10, 25, 10, 0.65); 
-    --bg-glass-heavy: rgba(5, 15, 5, 0.90);
+    --bg-glass: rgba(10, 25, 10, 0.92); 
+    --bg-glass-heavy: rgba(5, 15, 5, 0.98);
+}
+
+/* --- 5. LIGHT MODE --- */
+[data-theme="light"] {
+    --bg-gradient: linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%);
+    --text-main: #111827;
+    --text-muted: #6b7280;
+    --bg-glass: rgba(255, 255, 255, 0.85);
+    --bg-glass-heavy: rgba(255, 255, 255, 0.95);
+    --bg-input: rgba(0, 0, 0, 0.05);
+    --bg-input-focus: rgba(255, 255, 255, 1);
+    --border-color: rgba(0, 0, 0, 0.15);
+    --accent-glow: 0 4px 20px rgba(0,0,0,0.1); 
 }
 
 /* =========================================
-   2. GLOBAL RESET & NOISE TEXTURE
+   2. GLOBAL RESET & OPTIMIZED NOISE
    ========================================= */
 * {
     box-sizing: border-box;
@@ -90,7 +88,6 @@
 }
 
 body {
-    /* USE THE THEME GRADIENT */
     background: var(--bg-gradient);
     background-attachment: fixed;
     background-size: cover;
@@ -106,24 +103,27 @@ body {
     gap: 20px;
     overflow-x: hidden;
     
-    /* Smooth transition when switching models */
-    transition: background 0.5s ease;
+    /* FIX: Removed 'background-image' from transition. 
+       Transitioning gradients is what froze the app. 
+       Now it will snap instantly, preventing the "stuck" bug. */
+    transition: color 0.3s ease; 
 }
 
-/* --- THE SECRET SAUCE: NOISE TEXTURE OVERLAY --- */
+/* --- OPTIMIZED NOISE TEXTURE --- */
 body::before {
     content: "";
     position: fixed;
     top: 0; left: 0;
     width: 100%; height: 100%;
     
-    /* This SVG creates the grainy texture */
-    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.05'/%3E%3C/svg%3E");
+    /* 1-Octave Noise for Speed */
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='1' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.05'/%3E%3C/svg%3E");
     
     pointer-events: none;
     z-index: -1;
-    opacity: 0.4; /* Adjusts grain intensity */
-    mix-blend-mode: overlay; /* Blends nicely with the gradient */
+    opacity: 0.4;
+    mix-blend-mode: overlay;
+    transform: translateZ(0); 
 }
 
 .container {
@@ -142,7 +142,7 @@ body::before {
 .col { display: flex; flex-direction: column; gap: 8px; flex: 1; }
 
 /* =========================================
-   3. HEADER & TYPOGRAPHY (GLITCH RESTORED)
+   3. HEADER & TYPOGRAPHY
    ========================================= */
 .header-row {
     display: flex;
@@ -165,6 +165,7 @@ h2 {
     position: relative;
     flex: 1;
     white-space: pre-line;
+    transform: translateZ(0); 
 }
 
 h2::before, h2::after { white-space: pre-line; }
@@ -222,60 +223,47 @@ label {
 }
 
 /* =========================================
-   4. INPUTS & ACTIVE BORDERS
+   4. INPUTS
    ========================================= */
 input:not([type="checkbox"]):not([type="range"]):not([type="radio"]), 
 select, 
 textarea {
-    background: rgba(0, 0, 0, 0.2); /* Slightly darker for contrast */
-    
-    /* 1. DEFAULT BORDER (Subtle) */
-    border: 1px solid rgba(255, 255, 255, 0.15);
-    
+    background: var(--bg-input); 
+    border: 1px solid var(--border-color);
     color: var(--text-main);
     padding: 14px 16px;
     border-radius: var(--radius-sm);
     font-size: 14px;
     width: 100%;
     font-family: inherit;
-    transition: all 0.3s var(--ease-ios);
+    transition: background-color 0.2s, border-color 0.2s, transform 0.2s, box-shadow 0.2s;
     appearance: none;
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
 }
 
 textarea { resize: none !important; }
 
-/* 2. FOCUS STATE (The "Beautiful" Part) */
 input:not([type="checkbox"]):not([type="range"]):not([type="radio"]):focus, 
 select:focus, 
 textarea:focus {
     outline: none;
-    background: rgba(0, 0, 0, 0.4); /* Darken slightly on focus */
-    
-    /* Change Border Color to Purple/Accent */
+    background: var(--bg-input-focus);
     border-color: var(--accent-primary);
-    
-    /* Add Soft Glow Ring */
-    box-shadow: 
-        0 0 0 4px rgba(168, 85, 247, 0.15), /* Outer Ring */
-        0 0 15px rgba(168, 85, 247, 0.1);   /* Soft Glow */
-        
-    transform: translateY(-1px); /* Slight lift */
+    box-shadow: 0 0 0 2px rgba(168, 85, 247, 0.2); 
+    transform: translateY(-1px);
 }
 
-/* --- BOJRO SWITCH (Red/Green) --- */
+/* --- BOJRO SWITCH --- */
 .bojro-switch {
     appearance: none;
     width: 38px;
     height: 20px;
-    background: rgba(244, 67, 54, 0.25); /* Red Off */
+    background: rgba(244, 67, 54, 0.25);
     border: 1px solid var(--error);
     border-radius: 12px;
     position: relative;
     cursor: pointer;
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    box-shadow: inset 0 2px 4px rgba(0,0,0,0.2);
+    transition: background-color 0.3s, border-color 0.3s;
+    box-shadow: inset 0 2px 4px rgba(0,0,0,0.1);
     flex-shrink: 0;
 }
 
@@ -286,13 +274,12 @@ textarea:focus {
     width: 12px; height: 12px;
     background: var(--error);
     border-radius: 50%;
-    transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    transition: left 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275), background-color 0.3s;
 }
 
 .bojro-switch:checked {
-    background: rgba(0, 230, 118, 0.25); /* Green On */
+    background: rgba(0, 230, 118, 0.25);
     border-color: var(--success);
-    box-shadow: 0 0 10px var(--success-glow);
 }
 
 .bojro-switch:checked::after {
@@ -304,9 +291,9 @@ textarea:focus {
 
 /* Readonly fields */
 input[readonly], textarea[readonly] {
-    background: rgba(255,255,255,0.05);
+    background: rgba(128,128,128,0.05);
     border-color: transparent;
-    opacity: 0.7;
+    opacity: 0.8;
 }
 
 /* Range Slider */
@@ -314,7 +301,7 @@ input[readonly], textarea[readonly] {
     -webkit-appearance: none;
     width: 100%;
     height: 4px;
-    background: rgba(255,255,255,0.1);
+    background: var(--border-color);
     border-radius: 2px;
     outline: none;
 }
@@ -322,57 +309,60 @@ input[readonly], textarea[readonly] {
     -webkit-appearance: none;
     width: 20px; height: 20px;
     border-radius: 50%;
-    background: white;
+    background: var(--text-main);
     cursor: pointer;
-    box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
     transition: transform 0.2s;
 }
 .orange-slider::-webkit-slider-thumb:active { transform: scale(1.2); }
 
 /* =========================================
-   5. BUTTONS (iOS GLASS PILLS)
+   5. BUTTONS (FIXED LORA "ORPHAN")
    ========================================= */
 
 /* --- 1. SMALL ACTION BUTTONS --- */
 .btn-small {
     padding: 10px 18px;
-    background: rgba(255, 255, 255, 0.08); /* Frosted Glass */
+    background: rgba(128, 128, 128, 0.15); 
     color: var(--text-main);
     border: 1px solid var(--border-color);
-    border-radius: 30px; /* Pill Shape */
+    border-radius: 30px;
     font-weight: 700;
     font-size: 11px;
     cursor: pointer;
     flex-shrink: 0;
     text-transform: uppercase;
-    transition: all 0.2s var(--ease-ios);
+    transition: transform 0.2s, background-color 0.2s;
     display: flex;
     align-items: center;
     justify-content: center;
-    backdrop-filter: blur(10px);
 }
 
 .btn-small:active {
     transform: scale(0.95);
-    background: rgba(255, 255, 255, 0.2);
+    background: rgba(128, 128, 128, 0.3);
 }
 
-/* Dashed Button (Add LoRA) */
+/* --- THE FIX FOR "ORPHAN" LORA BUTTON --- */
 .btn-small.dashed {
-    background: transparent;
+    /* Gave it a "Shelter" (Background + Solid Box Feel) */
+    background: rgba(128, 128, 128, 0.08); /* Subtle fill */
     border: 1px dashed var(--border-color);
     color: var(--text-muted);
     width: 100%;
+    /* Added backdrop blur to make it feel like part of the glass UI */
+    backdrop-filter: blur(5px); 
+    -webkit-backdrop-filter: blur(5px);
 }
 .btn-small.dashed:active {
     border-color: var(--accent-primary);
     color: var(--accent-primary);
-    background: rgba(var(--accent-primary-rgb), 0.1);
+    background: rgba(var(--accent-primary), 0.1);
 }
 
-/* --- 2. SECONDARY BUTTONS (Queue/Tools) --- */
+/* --- 2. SECONDARY BUTTONS --- */
 .btn-secondary {
-    background: rgba(20, 20, 25, 0.6);
+    background: var(--bg-glass);
     border: 1px solid var(--border-color);
     color: var(--text-main);
     padding: 16px;
@@ -386,15 +376,14 @@ input[readonly], textarea[readonly] {
     text-transform: uppercase;
     font-size: 12px;
     letter-spacing: 1px;
-    transition: all 0.2s var(--ease-ios);
-    backdrop-filter: blur(10px);
+    transition: transform 0.2s, background-color 0.2s;
 }
 .btn-secondary:active {
-    background: rgba(255, 255, 255, 0.1);
+    background: var(--bg-input-focus);
     transform: scale(0.98);
 }
 
-/* --- 3. MAIN ACTION BUTTON (Generate / Save) --- */
+/* --- 3. MAIN ACTION BUTTON --- */
 .btn-main, #genBtn, button[onclick="saveConfiguration()"] {
     background: var(--accent-gradient) !important;
     color: white !important;
@@ -408,9 +397,9 @@ input[readonly], textarea[readonly] {
     text-transform: uppercase;
     letter-spacing: 2px;
     box-shadow: var(--accent-glow) !important;
-    transition: all 0.3s var(--ease-ios);
+    transition: transform 0.3s, filter 0.3s;
     width: 100%;
-    text-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    text-shadow: 0 1px 2px rgba(0,0,0,0.3);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -419,11 +408,9 @@ input[readonly], textarea[readonly] {
     overflow: hidden;
 }
 
-/* Shine Effect on Click */
 .btn-main:active, #genBtn:active, button[onclick="saveConfiguration()"]:active {
     transform: scale(0.98);
     filter: brightness(1.1);
-    box-shadow: 0 4px 12px rgba(168, 85, 247, 0.4) !important;
 }
 
 .btn-main:disabled, #genBtn:disabled {
@@ -434,17 +421,15 @@ input[readonly], textarea[readonly] {
     border: 1px solid var(--border-color) !important;
 }
 
-/* --- 4. THE BRICK BUTTON (Init Engine) -> CRYSTAL BAR --- */
+/* --- 4. CRYSTAL BAR --- */
 .brick-btn {
     width: 100%;
-    background: rgba(0, 0, 0, 0.3);
+    background: var(--bg-glass);
     border: 1px solid var(--border-color);
-    
     padding: 14px;
     font-size: clamp(11px, 4vw, 14px);
     letter-spacing: 2px;
     gap: 10px;
-    
     display: flex;
     align-items: center;
     justify-content: center;
@@ -453,13 +438,10 @@ input[readonly], textarea[readonly] {
     text-transform: uppercase;
     white-space: nowrap; 
     cursor: pointer;
-    border-radius: var(--radius-md); /* Smooth Corners */
-    transition: all 0.4s var(--ease-ios);
+    border-radius: var(--radius-md);
+    transition: transform 0.4s, border-color 0.4s;
     margin-bottom: 20px;
     outline: none;
-    backdrop-filter: blur(10px);
-    
-    /* Text Stroke Style */
     -webkit-text-fill-color: transparent;
     color: transparent;
     -webkit-text-stroke: 1px var(--text-muted); 
@@ -469,37 +451,30 @@ input[readonly], textarea[readonly] {
     width: 24px; height: 24px;
     stroke: var(--text-muted); 
     stroke-width: 2px;
-    fill: transparent;         
+    fill: transparent;        
     transition: all 0.4s ease;
-    filter: drop-shadow(0 0 2px rgba(0,0,0,0.5));
 }
 
 .brick-btn:active { transform: scale(0.98); }
 
-/* CONNECTING STATE (Green Crystal) */
 .brick-btn.connecting {
     border-color: var(--success);
     background: rgba(0, 230, 118, 0.1);
     -webkit-text-stroke: 1px var(--success);
-    box-shadow: 0 0 20px rgba(0, 230, 118, 0.2);
 }
 .brick-btn.connecting svg {
     stroke: var(--success);
-    filter: drop-shadow(0 0 8px var(--success));
     animation: pulse-icon 1s infinite alternate;
 }
 
-/* ACTIVE STATE (Neon Crystal) */
 .brick-btn.active {
     background: rgba(168, 85, 247, 0.15); 
     border-color: var(--accent-primary); 
     -webkit-text-stroke: 1.5px var(--accent-primary); 
-    box-shadow: 0 0 25px rgba(168, 85, 247, 0.25);
 }
 .brick-btn.active svg {
     stroke: var(--accent-primary);
     stroke-width: 2.5px; 
-    filter: drop-shadow(0 0 10px var(--accent-primary));
 }
 
 @keyframes pulse-icon {
@@ -507,36 +482,33 @@ input[readonly], textarea[readonly] {
     to { opacity: 1; transform: scale(1.1); }
 }
 
-/* --- 5. ICON BUTTONS (Round) --- */
+/* --- 5. ICON BUTTONS --- */
 .btn-icon {
     width: 42px; height: 42px;
     display: flex;
     align-items: center;
     justify-content: center;
-    background: rgba(255,255,255,0.05);
+    background: var(--bg-glass);
     border: 1px solid var(--border-color);
     color: var(--text-main);
     border-radius: 50%;
     cursor: pointer;
-    transition: all 0.3s var(--ease-ios);
-    backdrop-filter: blur(5px);
+    transition: transform 0.3s, background-color 0.3s;
 }
 
 .btn-icon:active {
     background: var(--text-main);
-    color: black;
+    color: var(--bg-glass);
     transform: scale(0.9);
 }
 
 .glass-icon {
-    background: rgba(255,255,255,0.1);
-    backdrop-filter: blur(10px);
-    border: 1px solid rgba(255,255,255,0.2);
-    color: white;
+    background: rgba(128,128,128,0.2);
+    border: 1px solid var(--border-color);
 }
 
 /* =========================================
-   6. FLOATING DOCK (FIXED FOR 7 ITEMS)
+   6. FLOATING DOCK
    ========================================= */
 .dock-wrapper {
     position: fixed;
@@ -552,37 +524,26 @@ input[readonly], textarea[readonly] {
 
 .glass-dock {
     pointer-events: auto;
-    
-    /* THE PDF HUNT MAGIC: Low Opacity + Heavy Blur */
-    background: rgba(0, 0, 0, 0.2); 
-    backdrop-filter: blur(20px) saturate(180%);
-    -webkit-backdrop-filter: blur(20px) saturate(180%);
-    
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: rgba(0, 0, 0, 0.5); 
+    backdrop-filter: blur(15px) saturate(180%);
+    -webkit-backdrop-filter: blur(15px) saturate(180%);
+    border: 1px solid rgba(255, 255, 255, 0.15);
     border-radius: 24px; 
-    
     height: 75px; 
-    
-    /* FIX: Reduced padding & gap to fit Comfy UI button */
-    padding: 0 6px;   /* Was 20px, now 6px to save space */
-    gap: 2px;         /* Tiny gap so items don't push out */
-    
+    padding: 0 6px;   
+    gap: 2px;         
     display: flex;
-    justify-content: space-around; /* Distributes 7 items perfectly */
+    justify-content: space-around; 
     align-items: flex-end; 
     padding-bottom: 8px;   
-    
-    box-shadow: 0 20px 40px rgba(0,0,0,0.4);
-    
-    /* WIDTH SETTINGS */
+    box-shadow: 0 10px 30px rgba(0,0,0,0.5);
     min-width: 360px;
-    max-width: 650px; /* Made slightly wider to accommodate extra button */
-    width: 98%;       /* Use almost full screen width */
-    
+    max-width: 650px; 
+    width: 98%;       
     overflow: visible; 
+    transform: translateZ(0);
 }
 
-/* Individual Dock Items */
 .dock-item {
     display: flex;
     flex-direction: column;
@@ -596,55 +557,35 @@ input[readonly], textarea[readonly] {
     transition: color 0.3s;
 }
 
-/* THE ICON CONTAINER */
 .dock-item i, .dock-item svg {
-    /* ICON SIZE */
     width: 30px;
     height: 30px;
-    
     box-sizing: content-box; 
     padding: 10px; 
-    
     border-radius: 18px; 
-    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1); 
-    
-    /* Default State */
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), background-color 0.3s; 
     background: transparent;
     transform: translateY(0);
     margin-bottom: 2px;
 }
 
-/* LABEL STYLING */
 .dock-item span {
     font-size: 10px;
     font-weight: 700;
     letter-spacing: 0.5px;
     opacity: 0.6;
     transform: translateY(0);
-    transition: all 0.3s ease;
+    transition: opacity 0.3s, transform 0.3s;
 }
 
-/* --- ACTIVE STATE (LIFT + DYNAMIC TINT + NO GLOW) --- */
-.dock-item.active {
-    color: white; 
-}
+.dock-item.active { color: white; }
 
 .dock-item.active i, .dock-item.active svg {
-    /* Lift Up Amount */
     transform: translateY(-20px);
-    
-    /* DYNAMIC COLOR MIX (Works for all themes) */
-    /* Mixes the theme color with 70% transparency */
-    background: color-mix(in srgb, var(--accent-primary), transparent 70%);
-    
-    /* Solid Theme Border */
+    background: var(--accent-primary);
     border: 1px solid var(--accent-primary);
-    
-    /* NO GLOW (Removed box-shadow) */
-    box-shadow: none;
-        
     color: #fff;
-    backdrop-filter: blur(10px);
+    box-shadow: 0 4px 10px rgba(0,0,0,0.3);
 }
 
 .dock-item.active span {
@@ -653,13 +594,11 @@ input[readonly], textarea[readonly] {
     transform: translateY(-2px); 
 }
 
-/* --- NOTIFICATION BADGE --- */
 .dock-item .badge {
     position: absolute;
     top: 8px; 
     right: 50%;
     margin-right: -22px; 
-    
     background: var(--error);
     color: white;
     font-size: 10px;
@@ -674,15 +613,13 @@ input[readonly], textarea[readonly] {
     z-index: 10;
     border: 2px solid #1a1a1a;
     pointer-events: none;
-    
-    transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: transform 0.3s;
 }
 
 .dock-item.active .badge {
     transform: translateY(-20px);
 }
 
-/* Mobile Adjustment */
 @media screen and (max-width: 380px) {
     .glass-dock { 
         padding: 0 4px; 
@@ -697,57 +634,39 @@ input[readonly], textarea[readonly] {
 }
 
 /* =========================================
-   7. CONTAINERS & PANELS (3D ICY BEVEL)
+   7. CONTAINERS
    ========================================= */
 .glass-box {
     background: var(--bg-glass);
     padding: 20px;
     border-radius: var(--radius-md);
-
-    /* --- THE NEW 3D BORDER EFFECT --- */
-    /* 1. Remove the old single border */
     border: none;
-
-    /* 2. Add specific light/dark edges to fake 3D */
-    border-top: 1px solid rgba(255, 255, 255, 0.4);  /* Bright Top (Light source) */
-    border-bottom: 1px solid rgba(0, 0, 0, 0.3);     /* Dark Bottom (Shadow) */
-    border-left: 1px solid rgba(255, 255, 255, 0.1); /* Subtle Sides */
-    border-right: 1px solid rgba(255, 255, 255, 0.1);
-    
-    /* 3. Add an inner light reflection */
-    box-shadow: 
-        0 8px 32px rgba(0,0,0,0.3),          /* Drop Shadow */
-        inset 0 1px 1px rgba(255,255,255,0.2); /* Inner Highlight */
-    /* -------------------------------- */
-
+    border-top: 1px solid rgba(255, 255, 255, 0.3);  
+    border-bottom: 1px solid rgba(0, 0, 0, 0.2);     
+    border-left: 1px solid rgba(255, 255, 255, 0.05); 
+    border-right: 1px solid rgba(255, 255, 255, 0.05);
+    box-shadow: 0 8px 32px rgba(0,0,0,0.2), inset 0 1px 1px rgba(255,255,255,0.1); 
     margin-bottom: 15px;
     position: relative;
-    
-    backdrop-filter: blur(20px) saturate(180%);
-    -webkit-backdrop-filter: blur(20px) saturate(180%);
-    transition: all 0.3s var(--ease-ios);
+    backdrop-filter: blur(15px);
+    -webkit-backdrop-filter: blur(15px);
+    transition: transform 0.3s, box-shadow 0.3s;
+    transform: translateZ(0);
 }
 
 .glass-box:hover {
-    /* Brighten the top edge slightly on hover */
-    border-top-color: rgba(255, 255, 255, 0.6);
-    transform: translateY(-2px);
-    box-shadow: 0 15px 40px rgba(0,0,0,0.4);
+    border-top-color: rgba(255, 255, 255, 0.5);
+    transform: translateY(-2px) translateZ(0);
 }
 
-/* Mode Switcher */
 .mode-switcher {
     display: flex;
-    background: rgba(0,0,0,0.3);
+    background: var(--bg-glass);
     border-radius: 14px;
     padding: 4px;
-    
-    /* Apply same 3D effect to switcher */
     border-top: 1px solid rgba(255,255,255,0.1);
-    border-bottom: 1px solid rgba(255,255,255,0.05);
-    
+    border-bottom: 1px solid rgba(0,0,0,0.2);
     margin-bottom: 20px;
-    backdrop-filter: blur(10px);
 }
 
 .mode-btn {
@@ -759,37 +678,32 @@ input[readonly], textarea[readonly] {
     font-size: 12px;
     color: var(--text-muted);
     cursor: pointer;
-    transition: all 0.3s var(--ease-ios);
-    position: relative;
+    transition: background-color 0.2s, color 0.2s;
     border: 1px solid transparent; 
 }
 
 .mode-btn.active {
     background: rgba(255, 255, 255, 0.15);
-    color: white;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
-    border-top: 1px solid rgba(255,255,255,0.3); /* Pop the button */
+    color: var(--text-main);
+    border-top: 1px solid rgba(255,255,255,0.3); 
 }
 
 /* =========================================
-   8. COMPLEX WIDGETS
+   8. WIDGETS
    ========================================= */
-
-/* Connection Indicator */
 .indicator {
     width: 10px;
     height: 10px;
     border-radius: 50%;
-    background: var(--border-active);
+    background: var(--border-color);
     display: inline-block;
-    transition: 0.3s;
+    transition: background-color 0.3s;
     flex-shrink: 0;
-    border: 2px solid var(--bg-panel); /* Ring effect */
+    border: 2px solid var(--bg-glass); 
 }
-.indicator.on { background: var(--success); box-shadow: 0 0 8px var(--success); }
+.indicator.on { background: var(--success); }
 .indicator.err { background: var(--error); }
 
-/* Resolution Grid */
 #resGrid {
     display: grid;
     grid-template-columns: 1fr repeat(5, 1.2fr);
@@ -815,7 +729,7 @@ input[readonly], textarea[readonly] {
 }
 
 .res-switch {
-    background: var(--btn-bg);
+    background: var(--bg-glass);
     color: var(--text-main);
     font-weight: 600;
     font-size: 11px;
@@ -836,7 +750,6 @@ input[readonly], textarea[readonly] {
     border-color: var(--accent-primary);
 }
 
-/* Toggle Option (Inpaint) */
 .toggle-opt {
     padding: 6px 12px;
     border-radius: 6px;
@@ -875,7 +788,7 @@ input[readonly], textarea[readonly] {
 }
 
 .queue-zone {
-    background: rgba(0,0,0,0.02); /* Very subtle tint */
+    background: rgba(0,0,0,0.02); 
     border: 1px dashed var(--border-color);
     border-radius: var(--radius-md);
     padding: 8px;
@@ -883,7 +796,7 @@ input[readonly], textarea[readonly] {
 }
 
 .q-card {
-    background: var(--bg-panel);
+    background: var(--bg-glass);
     border: 1px solid var(--border-color);
     padding: 10px;
     border-radius: var(--radius-sm);
@@ -891,7 +804,6 @@ input[readonly], textarea[readonly] {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
 }
 
 .q-handle {
@@ -900,7 +812,6 @@ input[readonly], textarea[readonly] {
     cursor: grab;
 }
 
-/* Gallery Grid */
 #savedGalleryGrid {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
@@ -917,7 +828,6 @@ input[readonly], textarea[readonly] {
     cursor: pointer;
 }
 
-/* Selection Tick (Added back for functionality) */
 .gal-tick {
     background: var(--accent-primary);
     border-radius: 50%;
@@ -929,20 +839,20 @@ input[readonly], textarea[readonly] {
 .gen-result {
     width: 100%;
     border-radius: var(--radius-md);
-    box-shadow: var(--shadow-soft);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
     border: 1px solid var(--border-color);
     margin-bottom: 15px;
 }
 
 /* =========================================
-   10. MODALS (DEEP GLASS OVERLAY)
+   10. MODALS
    ========================================= */
 .modal {
     position: fixed;
     top: 0; left: 0;
     width: 100%; height: 100%;
-    background: rgba(0, 0, 0, 0.6); /* Dimmed background */
-    backdrop-filter: blur(8px);      /* Blur the app behind the modal */
+    background: rgba(0, 0, 0, 0.7); 
+    backdrop-filter: blur(8px);      
     -webkit-backdrop-filter: blur(8px);
     z-index: 2000;
     display: flex;
@@ -953,21 +863,20 @@ input[readonly], textarea[readonly] {
 }
 
 .modal-content {
-    background: var(--bg-glass-heavy); /* Darker, stronger glass */
+    background: var(--bg-glass-heavy); 
     width: 90%;
     max-width: 450px;
     max-height: 85vh;
-    border-radius: var(--radius-lg); /* Very round corners */
+    border-radius: var(--radius-lg); 
     padding: 25px;
     display: flex;
     flex-direction: column;
-    border: 1px solid rgba(255, 255, 255, 0.15);
+    border: 1px solid var(--border-color);
     box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
     overflow: hidden;
     position: relative;
-    
-    /* Pop Animation */
     animation: modalPop 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    transform: translateZ(0);
 }
 
 @keyframes modalPop {
@@ -990,45 +899,40 @@ input[readonly], textarea[readonly] {
     margin: 0;
     font-size: 18px;
     font-weight: 800;
-    color: white;
+    color: var(--text-main);
     text-transform: uppercase;
     letter-spacing: 1px;
 }
 
 .close-btn {
-    background: rgba(255,255,255,0.1);
+    background: rgba(128,128,128,0.2);
     border: none;
     border-radius: 50%;
     width: 32px; height: 32px;
-    color: white;
+    color: var(--text-main);
     display: flex;
     align-items: center;
     justify-content: center;
     cursor: pointer;
     transition: 0.2s;
 }
-.close-btn:active { background: var(--error); transform: rotate(90deg); }
+.close-btn:active { background: var(--error); color:white; transform: rotate(90deg); }
 
 /* =========================================
-   11. LORA BROWSER & FOLDER FILTER STYLES
+   11. LORA BROWSER
    ========================================= */
-
-/* --- Horizontal Chip Container --- */
 .folder-chips-row {
     display: flex;
     gap: 8px;
     overflow-x: auto;
-    padding: 0 4px 10px 4px; /* Space for scrollbar/touch */
+    padding: 0 4px 10px 4px; 
     margin-bottom: 10px;
     white-space: nowrap;
     -webkit-overflow-scrolling: touch;
-    scrollbar-width: none; /* Hide scrollbar Firefox */
+    scrollbar-width: none; 
 }
-.folder-chips-row::-webkit-scrollbar {
-    display: none; /* Hide scrollbar Chrome/Safari */
-}
+.folder-chips-row::-webkit-scrollbar { display: none; }
 
-/* --- Individual Chip --- */
 .folder-chip {
     background: var(--bg-input);
     border: 1px solid var(--border-color);
@@ -1038,7 +942,7 @@ input[readonly], textarea[readonly] {
     font-size: 11px;
     font-weight: 600;
     cursor: pointer;
-    transition: all 0.2s;
+    transition: transform 0.2s;
     flex-shrink: 0;
     text-transform: uppercase;
     display: flex;
@@ -1046,19 +950,16 @@ input[readonly], textarea[readonly] {
     gap: 6px;
 }
 
-.folder-chip:active {
-    transform: scale(0.95);
-}
+.folder-chip:active { transform: scale(0.95); }
 
 .folder-chip.active {
     background: var(--accent-primary);
-    color: #000; /* Contrast text */
+    color: #000; 
     border-color: var(--accent-primary);
     font-weight: 800;
-    box-shadow: 0 2px 8px rgba(var(--accent-primary-rgb), 0.3);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.3);
 }
 
-/* --- Folder Manager List (Vertical) --- */
 .folder-list-vertical {
     display: flex;
     flex-direction: column;
@@ -1066,14 +967,13 @@ input[readonly], textarea[readonly] {
 }
 
 .folder-item-row {
-    background: var(--bg-panel);
+    background: var(--bg-glass);
     border: 1px solid var(--border-color);
     border-radius: var(--radius-sm);
     padding: 12px 15px;
     display: flex;
     justify-content: space-between;
     align-items: center;
-    transition: background 0.2s;
 }
 
 .folder-item-name {
@@ -1093,7 +993,6 @@ input[readonly], textarea[readonly] {
     border-radius: 4px;
 }
 
-/* Heart Button */
 .folder-heart-btn {
     background: transparent;
     border: none;
@@ -1104,34 +1003,27 @@ input[readonly], textarea[readonly] {
     display: flex;
     align-items: center;
     justify-content: center;
-    transition: all 0.2s;
+    transition: transform 0.2s;
 }
 
-.folder-heart-btn.active {
-    color: var(--error); /* Red heart */
-    fill: var(--error);
-}
+.folder-heart-btn.active { color: var(--error); fill: var(--error); }
+.folder-heart-btn:active { transform: scale(1.2); }
 
-.folder-heart-btn:active {
-    transform: scale(1.2);
-}
-
-/* LoRA Item Styles */
 .lora-item-row {
-    background: var(--bg-panel);
-    padding: 8px; /* Reduced padding for compact look */
+    background: var(--bg-glass);
+    padding: 8px; 
     margin-bottom: 8px;
     border-radius: var(--radius-sm);
     border: 1px solid var(--border-color);
     display: flex;
     align-items: center;
-    gap: 12px; /* Space between columns */
-    transition: all 0.2s;
+    gap: 12px; 
+    transition: border-color 0.2s;
 }
 
 .lora-item-row.active {
     border-color: var(--accent-primary);
-    background: rgba(255, 152, 0, 0.05); /* Optional subtle tint */
+    background: rgba(128,128,128,0.05); 
 }
 
 .lora-item-thumb {
@@ -1195,28 +1087,28 @@ input[readonly], textarea[readonly] {
     display: flex;
     align-items: center;
     justify-content: center;
-    background: var(--btn-bg);
+    background: var(--bg-input);
     border: 1px solid var(--border-color);
-    border-radius: 50%; /* Circular button */
+    border-radius: 50%; 
     color: var(--text-main);
     cursor: pointer;
     flex-shrink: 0;
-    transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    transition: transform 0.2s, background-color 0.2s;
 }
 
 .lora-item-row.active .lora-btn-toggle {
     background: var(--accent-primary);
-    color: #000; /* Contrast icon color */
+    color: #000; 
     border-color: var(--accent-primary);
-    transform: rotate(360deg); /* Nice spin effect on activation */
+    transform: rotate(360deg); 
 }
 
 /* =========================================
    12. LIGHTBOX / UPLOAD
    ========================================= */
 #fullScreenModal {
-    background: #000000; /* Always black for image viewing */
-    flex-direction: column !important; /* Original fix maintained */
+    background: #000000; 
+    flex-direction: column !important; 
     justify-content: space-between !important;
 }
 
@@ -1264,10 +1156,9 @@ input[readonly], textarea[readonly] {
 .nav-arrow.left { left: 10px; }
 .nav-arrow.right { right: 10px; }
 
-/* Upload Box */
 #uploadBox {
     border: 2px dashed var(--border-color);
-    background: var(--bg-panel);
+    background: var(--bg-glass);
     border-radius: var(--radius-md);
     padding: 40px;
     text-align: center;
@@ -1280,7 +1171,6 @@ input[readonly], textarea[readonly] {
     background: var(--bg-input);
 }
 
-/* Spinner */
 .spinner {
     width: 30px;
     height: 30px;
@@ -1294,18 +1184,17 @@ input[readonly], textarea[readonly] {
 @keyframes spin { to { transform: rotate(360deg); } }
 
 /* =========================================
-   13. BOJRO POWER BUTTON INTEGRATION (FIXED)
+   13. POWER BUTTON
    ========================================= */
-
 #power-btn-mini {
-    width: 44px; /* Matches btn-icon size */
+    width: 44px; 
     height: 44px;
     border-radius: 50%;
     border: 1px solid var(--border-color);
-    background: var(--btn-bg); /* Match app button bg */
-    box-shadow: 0 4px 10px rgba(0,0,0,0.3); /* Slight depth */
+    background: var(--bg-glass);
+    box-shadow: 0 4px 10px rgba(0,0,0,0.2); 
     cursor: pointer;
-    transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    transition: transform 0.3s;
     display: flex;
     justify-content: center;
     align-items: center;
@@ -1313,89 +1202,32 @@ input[readonly], textarea[readonly] {
     position: relative;
     overflow: hidden;
     margin: 0 auto;
-    padding: 0; /* Ensures SVG is centered */
+    padding: 0; 
 }
 
-/* The Inline SVG Icon */
 .power-svg {
     width: 22px;
     height: 22px;
-    color: var(--text-muted); /* Default off color (grey) */
-    transition: color 0.3s ease, filter 0.3s ease;
+    color: var(--text-muted); 
+    transition: color 0.3s;
     display: block;
 }
 
-/* Active State (ON / Sending) */
 #power-btn-mini:active, #power-btn-mini.active {
     transform: scale(0.95);
-    background: rgba(0, 230, 118, 0.1); /* Subtle green tint bg */
+    background: rgba(0, 230, 118, 0.1); 
     border-color: var(--success);
-    box-shadow: 0 0 15px rgba(0, 230, 118, 0.3); /* Green glow */
+    box-shadow: 0 0 15px rgba(0, 230, 118, 0.3); 
 }
 
-/* Turn SVG Green when active */
 #power-btn-mini:active .power-svg, #power-btn-mini.active .power-svg {
-    color: var(--success); /* #00e676 */
+    color: var(--success); 
     filter: drop-shadow(0 0 4px var(--success));
 }
 
 /* =========================================
-   14. CONNECTION SYSTEM ENHANCEMENTS
+   14. CONFIG VIEW
    ========================================= */
-
-/* Connection Button States */
-.connection-btn {
-    position: relative;
-    transition: all 0.3s ease;
-}
-
-.connection-btn.connecting {
-    background: rgba(255, 152, 0, 0.2);
-    border-color: var(--accent-primary);
-    color: var(--accent-primary);
-    animation: pulse 1.5s infinite;
-}
-
-.connection-btn.connected {
-    background: rgba(0, 230, 118, 0.2);
-    border-color: var(--success);
-    color: var(--success);
-    box-shadow: 0 0 10px rgba(0, 230, 118, 0.3);
-}
-
-.connection-btn.disconnected {
-    background: rgba(244, 67, 54, 0.1);
-    border-color: var(--error);
-    color: var(--error);
-}
-
-/* Enhanced Indicator States */
-.indicator.connecting {
-    background: var(--accent-primary);
-    animation: pulse 1.5s infinite;
-    box-shadow: 0 0 8px var(--accent-primary);
-}
-
-.indicator.connected {
-    background: var(--success);
-    box-shadow: 0 0 12px var(--success);
-}
-
-.indicator.disconnected {
-    background: var(--error);
-    box-shadow: 0 0 8px var(--error);
-}
-
-/* Pulse Animation */
-@keyframes pulse {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.5; }
-}
-
-/* =========================================
-   15. CONFIGURATION & SETTINGS TAB (FIXED TOGGLES)
-   ========================================= */
-
 #view-cfg {
     max-width: 600px;
     margin: 0 auto;
@@ -1403,7 +1235,6 @@ input[readonly], textarea[readonly] {
     padding-bottom: 40px;
 }
 
-/* Section Headers */
 #view-cfg .grp-header span {
     font-size: 13px;
     font-weight: 600;
@@ -1416,7 +1247,6 @@ input[readonly], textarea[readonly] {
     margin-top: 25px;
 }
 
-/* Glass Container */
 #view-cfg .grp-content {
     background: var(--bg-glass);
     border-radius: var(--radius-md);
@@ -1424,12 +1254,11 @@ input[readonly], textarea[readonly] {
     overflow: hidden;
     border: 1px solid var(--border-color);
     box-shadow: 0 4px 15px rgba(0,0,0,0.1);
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
+    backdrop-filter: blur(15px);
+    -webkit-backdrop-filter: blur(15px);
     margin-bottom: 10px;
 }
 
-/* Row Layout */
 #view-cfg .toggle-row,
 #view-cfg .radio-group,
 .llm-link-row {
@@ -1443,7 +1272,6 @@ input[readonly], textarea[readonly] {
 
 #view-cfg .grp-content > div:last-child { border-bottom: none; }
 
-/* --- 1. INPUT FIELDS --- */
 #view-cfg input[type="text"],
 #view-cfg input[type="number"],
 #view-cfg input[type="password"] {
@@ -1459,35 +1287,23 @@ input[readonly], textarea[readonly] {
     margin-top: 5px;
 }
 
-#view-cfg input:focus {
-    border-color: var(--accent-primary);
-    background: var(--bg-input-focus);
-    outline: none;
-}
-
-/* --- 2. MATCHED TOGGLE SWITCHES (Fixed for iOS) --- */
 #view-cfg input[type="checkbox"] {
-    -webkit-appearance: none; /* CRITICAL FIX */
+    -webkit-appearance: none; 
     appearance: none;
-    
     width: 38px;
     height: 20px;
-    
-    background: rgba(244, 67, 54, 0.25); /* Red Off */
+    background: rgba(244, 67, 54, 0.25); 
     border: 1px solid var(--error);
     border-radius: 12px;
-    
     position: relative;
     cursor: pointer;
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    box-shadow: inset 0 2px 4px rgba(0,0,0,0.2);
-    
+    transition: background-color 0.3s, border-color 0.3s;
+    box-shadow: inset 0 2px 4px rgba(0,0,0,0.1);
     outline: none;
     flex-shrink: 0;
-    margin: 0; /* Resets any default browser margins */
+    margin: 0; 
 }
 
-/* The Knob */
 #view-cfg input[type="checkbox"]::after {
     content: '';
     position: absolute;
@@ -1497,31 +1313,18 @@ input[readonly], textarea[readonly] {
     height: 12px;
     background: var(--error);
     border-radius: 50%;
-    transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-    box-shadow: none;
+    transition: left 0.3s, background-color 0.3s;
 }
 
-/* Checked State (Green) */
 #view-cfg input[type="checkbox"]:checked {
     background: rgba(0, 230, 118, 0.25);
     border-color: var(--success);
-    box-shadow: 0 0 10px var(--success-glow);
 }
-
 #view-cfg input[type="checkbox"]:checked::after {
-    left: 21px; /* Slides knob to the right */
+    left: 21px; 
     background: var(--success);
 }
 
-/* Focus State */
-#view-cfg input[type="checkbox"]:focus {
-    border-color: var(--error);
-}
-#view-cfg input[type="checkbox"]:checked:focus {
-    border-color: var(--success);
-}
-
-/* --- LLM Link Row --- */
 .llm-link-row select {
     flex: 2; height: 42px;
     background: var(--bg-input);
@@ -1533,7 +1336,7 @@ input[readonly], textarea[readonly] {
 }
 .llm-link-row button {
     flex: 1; height: 42px;
-    background: rgba(255,255,255,0.1);
+    background: var(--bg-glass);
     border: 1px solid var(--border-color);
     border-radius: var(--radius-sm);
     color: var(--accent-primary);
@@ -1541,33 +1344,13 @@ input[readonly], textarea[readonly] {
     font-size: 11px;
 }
 
-/* --- Radio Buttons --- */
-#view-cfg .radio-item label { margin: 0; font-size: 14px; color: var(--text-main); }
-#view-cfg input[type="radio"] {
-    -webkit-appearance: none; /* Fixed for iOS */
-    appearance: none;
-    width: 18px; height: 18px;
-    border: 2px solid var(--border-color);
-    border-radius: 50%;
-    background: var(--bg-input);
-    margin-right: 8px;
-    display: grid;
-    place-content: center;
-}
-#view-cfg input[type="radio"]::before {
-    content: ""; width: 8px; height: 8px; border-radius: 50%;
-    transform: scale(0); transition: 0.2s; background-color: var(--accent-primary);
-}
-#view-cfg input[type="radio"]:checked { border-color: var(--accent-primary); }
-#view-cfg input[type="radio"]:checked::before { transform: scale(1); }
-
 #view-cfg .cfg-badge {
     text-align: center; color: var(--text-muted);
     font-size: 11px; margin-top: 30px; opacity: 0.5; font-family: var(--font-mono);
 }
 
 /* =========================================
-   16. COMFYUI INTEGRATED STYLES
+   15. COMFYUI STYLES
    ========================================= */
 #view-comfy .gallery-grid {
     display: grid;
@@ -1604,7 +1387,6 @@ input[readonly], textarea[readonly] {
     font-family: monospace;
 }
 
-/* Comfy specific overrides for the merged view */
 #view-comfy .node-group {
     border-left: 3px solid var(--accent-primary);
     padding-left: 15px;
