@@ -10,6 +10,10 @@ let comfyLoadedWorkflow = null;
 let comfyInputMap = {}; 
 let comfyServerLists = { checkpoints: [], loras: [], vaes: [], clips: [], unets: [] };
 
+let comfyRunBuffer = [];        // Stores all images from the current run
+let isComfySelectionMode = false; // Tracks if we are selecting images
+let selectedComfyImages = new Set(); // Stores the URLs of selected images
+
 // --- 1. CONNECTION & SETUP ---
 
 function toggleComfyConfig() {
@@ -450,14 +454,20 @@ async function queueComfyPrompt() {
         return;
     }
 
+    // 1. Clear previous run buffer & selection
+    comfyRunBuffer = []; 
+    if(isComfySelectionMode) toggleComfySelectionMode(); // Exit selection mode if active
+
+    // 2. UI Updates (Spinning State)
     const btn = document.getElementById('comfyQueueBtn');
     btn.disabled = true;
-    btn.innerText = "RUNNING...";
+    btn.innerHTML = `<i data-lucide="loader-2" class="spin"></i> RUNNING...`; // Keeps spinning!
     
     document.getElementById('comfyProgressBar').style.width = "0%";
     document.getElementById('comfyProgressText').innerText = "QUEUED";
     document.getElementById('comfyLivePreview').style.opacity = 0.3;
 
+    // 3. Send Payload
     const payload = {
         prompt: comfyLoadedWorkflow,
         client_id: comfyClientId
@@ -471,10 +481,13 @@ async function queueComfyPrompt() {
         });
         const data = await res.json();
         console.log("Job ID:", data.prompt_id);
+        
+        if(window.lucide) lucide.createIcons();
     } catch (e) {
         alert("Failed to queue: " + e);
+        // Reset button on error
         btn.disabled = false;
-        btn.innerText = "GENERATE";
+        btn.innerHTML = `<i data-lucide="play"></i> GENERATE`;
     }
 }
 
@@ -490,7 +503,7 @@ async function interruptComfy() {
 // --- 5. HANDLER & SHARED GALLERY ---
 
 function handleComfyMessage(event) {
-    // 1. Live Preview (Binary Blob)
+    // 1. Handle Binary Preview (Live rendering)
     if (event.data instanceof Blob) {
         const url = URL.createObjectURL(event.data);
         const img = document.getElementById('comfyLivePreview');
@@ -516,52 +529,69 @@ function handleComfyMessage(event) {
             if(txt) txt.innerText = `STEP ${val} / ${max}`;
         }
 
-        // 3. FINAL IMAGE (SaveImage Nodes)
+        // 3. EXECUTED: An image (intermediate or final) is ready
+        // We DO NOT reset the button here. We just add it to the strip.
         if (msg.type === 'executed') {
             if (msg.data.output && msg.data.output.images) {
                 const imgData = msg.data.output.images[0];
                 const finalUrl = `http://${comfyHost}/view?filename=${imgData.filename}&subfolder=${imgData.subfolder}&type=${imgData.type}`;
                 
-                // A. Add to ComfyUI Strip
+                // A. Add to Buffer (For Auto-Save later)
+                comfyRunBuffer.push(finalUrl);
+
+                // B. Add to ComfyUI Strip (Visual only)
                 const gallery = document.getElementById('comfyGalleryContainer');
                 if(gallery) {
                     const div = document.createElement('div');
                     div.className = 'gallery-item';
                     
-                    // FIX: Click opens specific Comfy View with override
                     div.innerHTML = `
-                        <img src="${finalUrl}" onclick="viewComfyImage(this.src)">
+                        <img src="${finalUrl}">
                         <div class="gallery-tag">OUTPUT ${gallery.children.length + 1}</div>
                     `;
+                    
+                    // Add Click Handler for Selection Logic
+                    div.onclick = (e) => handleComfyItemClick(div, finalUrl);
+                    
                     gallery.appendChild(div);
                 }
 
-                // Update live preview
+                // Update live preview to show the latest result
                 const liveImg = document.getElementById('comfyLivePreview');
                 if(liveImg) {
                     liveImg.src = finalUrl;
                     liveImg.style.opacity = 1.0;
                 }
-                
-                // Reset UI
-                const bar = document.getElementById('comfyProgressBar');
-                const txt = document.getElementById('comfyProgressText');
-                const btn = document.getElementById('comfyQueueBtn');
-                
-                if(bar) bar.style.width = "100%";
-                if(txt) txt.innerText = "COMPLETE";
-                if(btn) {
-                    btn.disabled = false;
-                    btn.innerHTML = `<i data-lucide="play"></i> GENERATE`;
-                    if(window.lucide) lucide.createIcons();
-                }
-
-                // B. SAVE TO SHARED MAIN GALLERY
-                saveComfyToMainGallery(finalUrl);
             }
         }
+
+        // 4. EXECUTION SUCCESS: The WHOLE workflow is done 
+        // This corresponds to the protocol where 'execution_success' marks the end of the prompt_id lifecycle.
+        if (msg.type === 'execution_success') {
+            const bar = document.getElementById('comfyProgressBar');
+            const txt = document.getElementById('comfyProgressText');
+            const btn = document.getElementById('comfyQueueBtn');
+            
+            if(bar) bar.style.width = "100%";
+            if(txt) txt.innerText = "COMPLETE";
+            
+            // Re-enable Button
+            if(btn) {
+                btn.disabled = false;
+                btn.innerHTML = `<i data-lucide="play"></i> GENERATE`;
+                if(window.lucide) lucide.createIcons();
+            }
+
+            // AUTO-SAVE: Save ONLY the LAST image from the buffer to History
+            if (comfyRunBuffer.length > 0) {
+                const lastImage = comfyRunBuffer[comfyRunBuffer.length - 1];
+                saveComfyToMainGallery(lastImage);
+                console.log("Auto-saved final image:", lastImage);
+            }
+        }
+
     } catch (e) {
-        // console.error(e);
+        // console.warn(e);
     }
 }
 
@@ -688,6 +718,92 @@ function clearComfyResults() {
     
     const txt = document.getElementById('comfyProgressText');
     if (txt) txt.innerText = "IDLE";
+    
+    // Clear new buffers
+    comfyRunBuffer = []; 
+    
+    // Force exit selection mode if active
+    if(isComfySelectionMode) toggleComfySelectionMode();
+}
+
+// --- NEW SELECTION FUNCTIONS ---
+
+function toggleComfySelectionMode() {
+    isComfySelectionMode = !isComfySelectionMode;
+    const gallery = document.getElementById('comfyGalleryContainer');
+    const selectBtn = document.getElementById('comfySelectBtn');
+    const saveBtn = document.getElementById('comfySaveSelectedBtn');
+    
+    if (isComfySelectionMode) {
+        // Enter Selection Mode
+        gallery.classList.add('selection-mode');
+        selectBtn.style.background = 'var(--text-main)';
+        selectBtn.style.color = 'var(--bg-glass)';
+        selectBtn.innerText = "CANCEL";
+        selectedComfyImages.clear(); // Reset selection
+        updateComfySelectionUI();
+    } else {
+        // Exit Selection Mode
+        gallery.classList.remove('selection-mode');
+        // Remove visual selection from all items
+        Array.from(gallery.children).forEach(el => el.classList.remove('selected'));
+        
+        selectBtn.style.background = '';
+        selectBtn.style.color = '';
+        selectBtn.innerText = "SELECT";
+        saveBtn.classList.add('hidden');
+    }
+}
+
+function handleComfyItemClick(element, url) {
+    if (isComfySelectionMode) {
+        // Toggle Selection
+        if (selectedComfyImages.has(url)) {
+            selectedComfyImages.delete(url);
+            element.classList.remove('selected');
+        } else {
+            selectedComfyImages.add(url);
+            element.classList.add('selected');
+        }
+        updateComfySelectionUI();
+    } else {
+        // Standard View Mode (Fullscreen)
+        viewComfyImage(url);
+    }
+}
+
+function updateComfySelectionUI() {
+    const saveBtn = document.getElementById('comfySaveSelectedBtn');
+    const countSpan = document.getElementById('comfySelCount');
+    
+    countSpan.innerText = selectedComfyImages.size;
+    
+    // Only show SAVE button if at least 1 image is selected
+    if (selectedComfyImages.size > 0) {
+        saveBtn.classList.remove('hidden');
+    } else {
+        saveBtn.classList.add('hidden');
+    }
+}
+
+function saveSelectedComfyImages() {
+    if (selectedComfyImages.size === 0) return;
+    
+    // Save every selected URL to the main app gallery
+    selectedComfyImages.forEach(url => {
+        saveComfyToMainGallery(url);
+    });
+    
+    // Visual Feedback
+    const btn = document.getElementById('comfySaveSelectedBtn');
+    const originalText = btn.innerHTML;
+    btn.innerText = "SAVED!";
+    
+    setTimeout(() => {
+        // Exit selection mode automatically after saving
+        toggleComfySelectionMode();
+        btn.innerHTML = originalText;
+    }, 1000);
 }
 
 // 8. AUTO-INIT ON LOAD
