@@ -87,7 +87,7 @@ function updateComfyStatus(status) {
         btn.innerHTML = `<i data-lucide="loader-2" class="spin"></i> CONNECTING...`;
     } else {
         // Disconnected: Standard Grey
-        btn.innerHTML = `<i data-lucide="plug"></i> CONNECT TO COMFYUI`;
+        btn.innerHTML = `<i data-lucide="plug"></i> CONNECT`;
         if(document.getElementById('comfyQueueBtn')) document.getElementById('comfyQueueBtn').disabled = true;
     }
     
