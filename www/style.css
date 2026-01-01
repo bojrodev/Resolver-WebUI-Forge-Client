@@ -1549,3 +1549,38 @@ input[readonly], textarea[readonly] {
     justify-content: space-between;
     text-transform: uppercase;
 }
+
+/* --- COMFY SELECTION MODE --- */
+#comfyGalleryContainer.selection-mode .gallery-item {
+    cursor: pointer;
+    border: 2px solid transparent;
+    transition: all 0.2s;
+    opacity: 0.6; /* Dim unselected items */
+}
+
+#comfyGalleryContainer.selection-mode .gallery-item:active {
+    transform: scale(0.95);
+}
+
+#comfyGalleryContainer.selection-mode .gallery-item.selected {
+    border-color: var(--success);
+    opacity: 1.0;
+    box-shadow: 0 0 10px rgba(0, 230, 118, 0.4);
+    transform: scale(1.02);
+}
+
+#comfyGalleryContainer.selection-mode .gallery-item.selected::after {
+    content: '✓';
+    position: absolute;
+    top: 5px; right: 5px;
+    background: var(--success);
+    color: black;
+    width: 18px; height: 18px;
+    border-radius: 50%;
+    font-size: 10px;
+    font-weight: bold;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10;
+}

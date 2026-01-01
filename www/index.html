@@ -15,7 +15,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700;900&display=swap" rel="stylesheet">
     
     <script src="js/lucide.js"></script>
-    <link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="style.css?v=2.0">
 </head>
 <body>
 
@@ -733,17 +733,24 @@
                     <label style="color:var(--accent-primary)">🔴 LIVE MONITOR</label>
                     <span id="comfyProgressText" style="font-size: 10px; color: var(--text-muted); font-family: monospace;">IDLE</span>
                 </div>
+                
                 <div style="width: 100%; height: 4px; background: var(--bg-input); border-radius: 2px; overflow: hidden; margin-bottom: 10px;">
                     <div id="comfyProgressBar" style="width: 0%; height: 100%; background: var(--accent-primary); transition: width 0.2s;"></div>
                 </div>
+                
                 <div style="background: #000; border-radius: var(--radius-sm); min-height: 200px; display: flex; align-items: center; justify-content: center; overflow: hidden; border: 1px solid var(--border-color);">
                     <img id="comfyLivePreview" style="max-width: 100%; opacity: 0.3;">
                 </div>
 
                 <div style="margin-top: 20px; border-top: 1px solid var(--border-color); padding-top: 10px;">
-                    <div class="row" style="justify-content: space-between;">
-                        <label style="color:var(--success)">✅ FINISHED OUTPUTS</label>
-                        <button onclick="clearComfyResults()" class="btn-small" style="padding:2px 8px; font-size:9px;">CLEAR</button>
+                    <div class="row" style="justify-content: space-between; align-items: center; margin-bottom:10px;">
+                        <label style="color:var(--success); margin:0;">✅ FINISHED OUTPUTS</label>
+                        
+                        <div class="row" style="width: auto; gap: 8px;">
+                            <button id="comfySelectBtn" onclick="toggleComfySelectionMode()" class="btn-small" style="padding:4px 8px; font-size:9px;">SELECT</button>
+                            <button id="comfySaveSelectedBtn" onclick="saveSelectedComfyImages()" class="btn-small hidden" style="background: var(--accent-primary); color:black; padding:4px 8px; font-size:9px;">SAVE (<span id="comfySelCount">0</span>)</button>
+                            <button onclick="clearComfyResults()" class="btn-small" style="padding:4px 8px; font-size:9px;">CLEAR</button>
+                        </div>
                     </div>
                     <div id="comfyGalleryContainer" class="gallery-grid"></div>
                 </div>
@@ -939,7 +946,7 @@
             </div>
     </div>
 
-    <div id="editorModal" class="modal hidden" style="z-index: 300;">
+    <div id="editorModal" class="modal hidden">
         <div style="position: absolute; top:0; left:0; width:100%; height:100%; background:#000; display:flex; flex-direction:column;">
             <div style="padding:15px; display:flex; justify-content:space-between; align-items:center; background:rgba(0,0,0,0.5); z-index:10;">
                 <h3 style="margin:0; color:#fff;">CROP & EDIT</h3>
@@ -1126,10 +1133,10 @@
         <div class="glass-dock">
             <div class="dock-item active" id="dock-gen" onclick="switchTab('gen')"><i data-lucide="zap"></i><span>GEN</span></div>
             <div class="dock-item" id="dock-inp" onclick="switchTab('inp')"><i data-lucide="brush"></i><span>INP</span></div>
-            <div class="dock-item" id="dock-que" onclick="switchTab('que')" style="position: relative;">
-                <div id="queueBadge" class="badge hidden">0</div>
+            <div class="dock-item" id="dock-que" onclick="switchTab('que')">
                 <i data-lucide="layers"></i>
                 <span>QUE</span>
+                <div id="queueBadge" class="badge hidden">0</div>
             </div>
             <div class="dock-item" id="dock-gal" onclick="switchTab('gal')"><i data-lucide="image"></i><span>GAL</span></div>
             <div class="dock-item" id="dock-ana" onclick="switchTab('ana')"><i data-lucide="scan-line"></i><span>ANA</span></div>
