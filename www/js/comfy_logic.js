@@ -19,6 +19,12 @@ let isComfyGenerating = false;
 let selectedTemplates = new Set();
 let isTmplSelectionMode = false;
 
+// --- COMFY EDITOR STATE ---
+var isComfyMaskingMode = false;
+var comfyMaskTargetNodeId = null;
+
+
+
 // --- 1. CONNECTION & SETUP ---
 
 function toggleComfyConfig() {
@@ -156,6 +162,25 @@ function saveComfySession(filename, jsonStr) {
 }
 
 function restoreComfySession() {
+    // 1. Try to load the "Snapshot" (Your modified settings)
+    const snapshot = localStorage.getItem('bojro_comfy_snapshot');
+    const snapshotName = localStorage.getItem('bojro_comfy_snapshot_name');
+
+    if (snapshot && snapshotName) {
+        try {
+            comfyLoadedWorkflow = JSON.parse(snapshot);
+            const label = document.getElementById('comfyLoadedFileName');
+            if(label) label.innerText = snapshotName;
+            
+            buildComfyUI(comfyLoadedWorkflow);
+            console.log("Restored Snapshot:", snapshotName);
+            return; // Stop here, we are done
+        } catch(e) {
+            console.warn("Snapshot corrupted, ignoring...");
+        }
+    }
+
+    // 2. Fallback: Load the original clean template
     const savedName = localStorage.getItem('bojro_comfy_template_name');
     const savedJson = localStorage.getItem('bojro_comfy_template_json');
     
@@ -165,21 +190,22 @@ function restoreComfySession() {
             const label = document.getElementById('comfyLoadedFileName');
             if(label) label.innerText = savedName;
             
-            // Rebuild UI
             buildComfyUI(comfyLoadedWorkflow);
-            console.log("Restored Comfy Template:", savedName);
-        } catch(e) {
-            console.warn("Failed to restore template:", e);
-        }
+        } catch(e) { console.warn(e); }
     }
 }
 
 function unloadComfyTemplate() {
     if(confirm("Unload current template?")) {
-        // Clear Storage
+        // Clear Original
         localStorage.removeItem('bojro_comfy_template_name');
         localStorage.removeItem('bojro_comfy_template_json');
         
+        // NEW: Clear Snapshot too
+        localStorage.removeItem('bojro_comfy_snapshot');
+        localStorage.removeItem('bojro_comfy_snapshot_name');
+        
+        // ... (Keep the rest of your existing code here) ...
         // Reset Memory
         comfyLoadedWorkflow = null;
         comfyInputMap = {};
@@ -366,10 +392,26 @@ function createComfyImageUpload(parent, nodeId, inputs, title) {
     wrapper.innerHTML = `<div class="node-header"><span>🖼️ INPUT IMAGE</span> <span style="opacity:0.5">#${nodeId}</span></div>`;
 
     const inputId = `file_${nodeId}`;
+    const thumbId = `thumb_${nodeId}`;
+    
+    // Check if there is already an image saved in the workflow
+    const currentImg = inputs.image ? `http://${comfyHost}/view?filename=${inputs.image}&type=input` : '';
+    const displayStyle = currentImg ? 'display:block;' : 'display:none;';
+
     wrapper.innerHTML += `
+        <div style="background:rgba(0,0,0,0.3); border-radius:8px; margin-bottom:10px; overflow:hidden; min-height:50px; display:flex; align-items:center; justify-content:center;">
+            <img id="${thumbId}" src="${currentImg}" style="width:100%; height:auto; max-height:200px; object-fit:contain; ${displayStyle}" onerror="this.style.display='none'">
+            <div id="placeholder_${nodeId}" style="color:var(--text-muted); font-size:10px; ${currentImg ? 'display:none' : 'display:block'}">NO IMAGE</div>
+        </div>
+
         <input type="file" id="${inputId}" accept="image/*" style="margin-bottom:10px">
-        <button class="btn-small" onclick="uploadComfyImage('${nodeId}', '${inputId}')" style="width:100%; justify-content:center;">UPLOAD & SET</button>
-        <div id="status_${nodeId}" style="font-size:10px; color:var(--text-muted); margin-top:5px; font-family:monospace;">${inputs.image}</div>
+        
+        <div class="row" style="gap:5px;">
+            <button class="btn-small" onclick="uploadComfyImage('${nodeId}', '${inputId}')" style="flex:1;">UPLOAD</button>
+            <button class="btn-small" onclick="startComfyMasking('${nodeId}')" style="flex:1; background:var(--accent-secondary);">MASK</button>
+        </div>
+        
+        <div id="status_${nodeId}" style="font-size:10px; color:var(--text-muted); margin-top:5px; font-family:monospace;">${inputs.image || ''}</div>
     `;
     
     parent.appendChild(wrapper);
@@ -413,12 +455,19 @@ function updateComfyValue(nodeId, field, value) {
     let finalVal = value;
     const node = comfyLoadedWorkflow[nodeId];
     
+    // Standard parsing
     if (['steps','width','height','seed'].includes(field)) finalVal = parseInt(value);
     if (['cfg','strength_model','strength_clip'].includes(field)) finalVal = parseFloat(value);
     
+    // Update the memory
     if (node && node.inputs) {
         node.inputs[field] = finalVal;
     }
+
+    // NEW: Save to disk immediately!
+    localStorage.setItem('bojro_comfy_snapshot', JSON.stringify(comfyLoadedWorkflow));
+    const currentName = document.getElementById('comfyLoadedFileName').innerText;
+    localStorage.setItem('bojro_comfy_snapshot_name', currentName);
 }
 
 function randomizeComfySeed(uid) {
@@ -430,6 +479,8 @@ function randomizeComfySeed(uid) {
 async function uploadComfyImage(nodeId, inputId) {
     const fileInput = document.getElementById(inputId);
     const statusSpan = document.getElementById(`status_${nodeId}`);
+    const thumbImg = document.getElementById(`thumb_${nodeId}`);
+    const placeholder = document.getElementById(`placeholder_${nodeId}`);
     
     if (fileInput.files.length === 0) return;
     
@@ -446,11 +497,23 @@ async function uploadComfyImage(nodeId, inputId) {
         });
         const data = await resp.json();
         
-        comfyLoadedWorkflow[nodeId].inputs.image = data.name;
+        // 1. Update Memory
+        updateComfyValue(nodeId, 'image', data.name);
+        
+        // 2. Update Status Text
         if(statusSpan) {
             statusSpan.innerText = "READY: " + data.name;
             statusSpan.style.color = "var(--success)";
         }
+
+        // 3. Update Thumbnail (Visual)
+        if (thumbImg) {
+            // Add a timestamp to force refresh the image
+            thumbImg.src = `http://${comfyHost}/view?filename=${data.name}&type=input&t=${Date.now()}`;
+            thumbImg.style.display = 'block';
+        }
+        if (placeholder) placeholder.style.display = 'none';
+
     } catch (e) {
         alert("Upload Failed: " + e);
     }
@@ -1044,6 +1107,122 @@ async function importMultipleTemplates(event) {
     if(typeof Toast !== 'undefined') {
         Toast.show({ text: `Import process complete`, duration: 'short' });
     }
+}
+
+
+// --- NEW MASKING FUNCTIONS ---
+
+function startComfyMasking(nodeId) {
+    // 1. Check if there is already an image name in the node
+    const currentImageName = comfyLoadedWorkflow[nodeId].inputs.image;
+    if (!currentImageName) {
+        alert("Please upload a base image first!");
+        return;
+    }
+
+    // 2. Construct the URL to fetch the current image from ComfyUI
+    // Note: This assumes the image is in the root input folder.
+    const imageUrl = `http://${comfyHost}/view?filename=${currentImageName}&type=input`;
+
+    // 3. Set our global flags so the app knows we are in "Comfy Mode"
+    isComfyMaskingMode = true;
+    comfyMaskTargetNodeId = nodeId;
+
+    // 4. Load the image into the editor (We use your existing logic)
+    const img = new Image();
+    img.crossOrigin = "Anonymous";
+    img.src = imageUrl;
+    
+    img.onload = () => {
+        // Set global editor variables (from globals.js)
+        editorImage = img;
+        
+        // Open your existing Editor Modal
+        const modal = document.getElementById('editorModal');
+        if(modal) modal.classList.remove('hidden');
+
+        // Trigger your editor reset logic (if available)
+        if (typeof recalcEditorLayout === 'function') recalcEditorLayout();
+        if (typeof resetEditorView === 'function') resetEditorView();
+    };
+
+    img.onerror = () => {
+        alert("Could not load image from PC. Is the server connected?");
+        isComfyMaskingMode = false;
+    };
+}
+
+// This function will be called when you click "Proceed" in the editor
+async function finishComfyMasking() {
+    // 1. Get the data from your editor canvas
+    // We assume 'mainCanvas' and 'maskCanvas' exist globally from engine.js
+    
+    // Create a temporary canvas to combine Image + Mask
+    const tempCanvas = document.createElement('canvas');
+    tempCanvas.width = editorImage.width;
+    tempCanvas.height = editorImage.height;
+    const ctx = tempCanvas.getContext('2d');
+
+    // Draw the Base Image
+    ctx.drawImage(editorImage, 0, 0);
+
+    // Draw the Mask on top (from your app's mask canvas)
+    // We assume maskCanvas is aligned to the editor view
+    if (maskCanvas) {
+        // Note: This is a simplified merge. 
+        // Ideally, we want the mask as the Alpha channel.
+        // For ComfyUI inpainting, we usually send the image *with* the alpha mask.
+        ctx.globalCompositeOperation = 'destination-out';
+        ctx.drawImage(maskCanvas, 0, 0, tempCanvas.width, tempCanvas.height);
+    }
+
+    // 2. Convert to Blob
+    tempCanvas.toBlob(async (blob) => {
+        // 3. Upload to ComfyUI
+        const formData = new FormData();
+        // Give it a unique name so ComfyUI sees it as a new file
+        const filename = `mask_edit_${Date.now()}.png`;
+        formData.append("image", blob, filename);
+        formData.append("overwrite", "true");
+
+        // UI Feedback
+        const statusEl = document.getElementById(`status_${comfyMaskTargetNodeId}`);
+        if(statusEl) statusEl.innerText = "UPLOADING MASK...";
+
+        try {
+            const resp = await fetch(`http://${comfyHost}/upload/image`, {
+                method: 'POST',
+                body: formData
+            });
+            const data = await resp.json();
+
+            // 4. Update the Node Input
+            updateComfyValue(comfyMaskTargetNodeId, 'image', data.name);
+            
+            // 5. Trigger Auto-Save
+            const statusEl = document.getElementById(`status_${comfyMaskTargetNodeId}`);
+            if(statusEl) {
+                statusEl.innerText = "MASK READY: " + data.name;
+                statusEl.style.color = "var(--accent-secondary)";
+            }
+
+            // NEW: Update the Thumbnail
+            const thumbImg = document.getElementById(`thumb_${comfyMaskTargetNodeId}`);
+            const placeholder = document.getElementById(`placeholder_${comfyMaskTargetNodeId}`);
+            if (thumbImg) {
+                thumbImg.src = `http://${comfyHost}/view?filename=${data.name}&type=input&t=${Date.now()}`;
+                thumbImg.style.display = 'block';
+            }
+            
+            // 6. Close Modal and Reset Mode
+            document.getElementById('editorModal').classList.add('hidden');
+            isComfyMaskingMode = false;
+            comfyMaskTargetNodeId = null;
+
+        } catch (e) {
+            alert("Upload Failed: " + e.message);
+        }
+    }, 'image/png');
 }
 
 // 8. AUTO-INIT ON LOAD
