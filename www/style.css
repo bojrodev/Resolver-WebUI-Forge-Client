@@ -680,6 +680,7 @@ input[readonly], textarea[readonly] {
     cursor: pointer;
     transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
     min-width: 0; /* Important for flex scaling */
+    position: relative;
 }
 
 .dock-item i { transition: 0.2s; width: 22px; height: 22px; }
