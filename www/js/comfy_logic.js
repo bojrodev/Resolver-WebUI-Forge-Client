@@ -147,9 +147,14 @@ function loadWorkflowFile(event) {
             document.getElementById('comfyLoadedFileName').innerText = fileName;
             buildComfyUI(comfyLoadedWorkflow);
             
-            // Save Persistence
+            // 1. Save Base Template
             saveComfySession(fileName, jsonStr);
-            saveTemplateToDB(fileName, jsonStr); // This saves the file to your new database box
+            saveTemplateToDB(fileName, jsonStr);
+            
+            // 2. FORCE SAVE SNAPSHOT (Fixes the issue)
+            // This ensures restoreComfySession() finds this exact state immediately
+            localStorage.setItem('bojro_comfy_snapshot', jsonStr);
+            localStorage.setItem('bojro_comfy_snapshot_name', fileName);
             
             if (comfySocket && comfySocket.readyState === WebSocket.OPEN) {
                 document.getElementById('comfyQueueBtn').disabled = false;
@@ -167,7 +172,6 @@ function saveComfySession(filename, jsonStr) {
 }
 
 function restoreComfySession() {
-    // 1. Try to load the "Snapshot" (Your modified settings)
     const snapshot = localStorage.getItem('bojro_comfy_snapshot');
     const snapshotName = localStorage.getItem('bojro_comfy_snapshot_name');
 
@@ -179,13 +183,12 @@ function restoreComfySession() {
             
             buildComfyUI(comfyLoadedWorkflow);
             console.log("Restored Snapshot:", snapshotName);
-            return; // Stop here, we are done
+            return;
         } catch(e) {
             console.warn("Snapshot corrupted, ignoring...");
         }
     }
 
-    // 2. Fallback: Load the original clean template
     const savedName = localStorage.getItem('bojro_comfy_template_name');
     const savedJson = localStorage.getItem('bojro_comfy_template_json');
     
@@ -194,7 +197,6 @@ function restoreComfySession() {
             comfyLoadedWorkflow = JSON.parse(savedJson);
             const label = document.getElementById('comfyLoadedFileName');
             if(label) label.innerText = savedName;
-            
             buildComfyUI(comfyLoadedWorkflow);
         } catch(e) { console.warn(e); }
     }
@@ -202,20 +204,14 @@ function restoreComfySession() {
 
 function unloadComfyTemplate() {
     if(confirm("Unload current template?")) {
-        // Clear Original
         localStorage.removeItem('bojro_comfy_template_name');
         localStorage.removeItem('bojro_comfy_template_json');
-        
-        // NEW: Clear Snapshot too
         localStorage.removeItem('bojro_comfy_snapshot');
         localStorage.removeItem('bojro_comfy_snapshot_name');
         
-        // ... (Keep the rest of your existing code here) ...
-        // Reset Memory
         comfyLoadedWorkflow = null;
         comfyInputMap = {};
         
-        // Reset UI
         const container = document.getElementById('comfy-dynamic-controls');
         if(container) container.innerHTML = '';
         
@@ -234,20 +230,39 @@ function buildComfyUI(workflow) {
     container.innerHTML = ''; 
     comfyInputMap = {}; 
 
-    // Create the "Resources" box
+    // 1. Create the "Resources" box (Persistent State)
+    const resState = getCollapseClass('resources'); 
     let resourceBox = document.createElement('div');
     resourceBox.className = 'glass-box';
     resourceBox.style.borderLeft = '4px solid var(--accent-secondary)';
     resourceBox.innerHTML = `
-        <div class="row" onclick="this.nextElementSibling.classList.toggle('hidden')" style="cursor:pointer; justify-content:space-between; margin-bottom:10px;">
+        <div class="row" onclick="toggleCollapse(this, 'resources')" style="cursor:pointer; justify-content:space-between; margin-bottom:10px;">
             <label style="font-size:12px; color:var(--accent-secondary); font-weight:900;">💾 MODELS & RESOURCES</label>
             <i data-lucide="chevron-down" size="14"></i>
         </div>
-        <div id="comfy-resource-content" class="col" style="gap:15px;"></div>
+        <div id="comfy-resource-content" class="col ${resState}" style="gap:15px;"></div>
     `;
     let resourceContent = resourceBox.querySelector('#comfy-resource-content');
     let hasResources = false;
 
+    // 2. Create the "Extra Nodes" box (Always Collapsed by Default)
+    // We hardcode 'hidden' and the rotation (-90deg) so it starts closed.
+    // The onclick toggles it visually but does NOT save to localStorage.
+    let extrasBox = document.createElement('div');
+    extrasBox.className = 'glass-box';
+    extrasBox.style.marginTop = '15px';
+    extrasBox.style.borderLeft = '4px solid #777';
+    extrasBox.innerHTML = `
+        <div class="row" onclick="const c=this.nextElementSibling; c.classList.toggle('hidden'); const i=this.querySelector('svg'); if(i) i.style.transform = c.classList.contains('hidden') ? 'rotate(-90deg)' : 'rotate(0deg)';" style="cursor:pointer; justify-content:space-between; margin-bottom:10px;">
+            <label style="font-size:12px; color:#ccc; font-weight:900;">🔧 EXTRA NODES</label>
+            <i data-lucide="chevron-down" size="14" style="transition: transform 0.2s; transform: rotate(-90deg);"></i>
+        </div>
+        <div id="comfy-extras-content" class="col hidden" style="gap:15px;"></div>
+    `;
+    let extrasContent = extrasBox.querySelector('#comfy-extras-content');
+    let hasExtras = false;
+
+    // Sort nodes to keep order consistent
     const nodeIds = Object.keys(workflow).sort((a,b) => parseInt(a) - parseInt(b));
 
     for (const nodeId of nodeIds) {
@@ -255,8 +270,13 @@ function buildComfyUI(workflow) {
         const type = node.class_type;
         const title = node._meta ? node._meta.title : type;
 
+        // --- SPECIAL: Power Lora Loader (rgthree) ---
+        if (type === 'Power Lora Loader (rgthree)') {
+            createPowerLora(container, nodeId, node.inputs, title);
+        }
+
         // --- A. RESOURCE NODES ---
-        if (type.includes('CheckpointLoader')) {
+        else if (type.includes('CheckpointLoader')) {
             addComfyDropdown(resourceContent, nodeId, 'ckpt_name', 'CHECKPOINT', comfyServerLists.checkpoints, node.inputs.ckpt_name);
             hasResources = true;
         }
@@ -277,7 +297,7 @@ function buildComfyUI(workflow) {
             hasResources = true;
         }
         
-        // --- B. STANDARD NODES ---
+        // --- B. STANDARD NODES (Main UI) ---
         else if (type === 'KSampler' || type === 'KSamplerAdvanced') {
             createComfySampler(container, nodeId, node.inputs, title);
         }
@@ -290,18 +310,28 @@ function buildComfyUI(workflow) {
         else if (type === 'EmptyLatentImage' || type === 'EmptySD3LatentImage') {
             createComfyResolution(container, nodeId, node.inputs, title);
         }
+        
+        // --- C. GENERIC FALLBACK (To Extras Box) ---
+        else {
+            // We append to extrasContent, not the main container
+            createGenericNode(extrasContent, nodeId, node.inputs, title);
+            hasExtras = true;
+        }
     }
 
+    // Insert Boxes at the top or bottom
     if (hasResources) container.insertBefore(resourceBox, container.firstChild);
+    
+    // Append the Extras box at the very end
+    if (hasExtras) container.appendChild(extrasBox);
     
     if(window.lucide) lucide.createIcons();
 }
 
-// --- 3. UI GENERATORS (Namespaced) ---
+// --- 3. UI GENERATORS (Namespaced & Collapsible) ---
 
 function addComfyDropdown(parent, nodeId, fieldName, label, listData, currentVal) {
     const uid = `in_${nodeId}_${fieldName}`;
-    
     const options = listData && listData.length > 0 
         ? listData.map(f => `<option value="${f}" ${f === currentVal ? 'selected' : ''}>${f}</option>`).join('')
         : `<option value="${currentVal}">${currentVal}</option>`;
@@ -322,7 +352,7 @@ function addComfyDropdown(parent, nodeId, fieldName, label, listData, currentVal
 
 function addComfyLora(parent, nodeId, title, inputs) {
     const wrapper = document.createElement('div');
-    wrapper.style.cssText = 'background:rgba(255,255,255,0.03); padding:8px; border-radius:8px; border:1px solid var(--border-color);';
+    wrapper.style.cssText = 'background:rgba(255,255,255,0.03); padding:8px; border-radius:8px; border:1px solid var(--border-color); margin-bottom:10px;';
     
     const listData = comfyServerLists.loras;
     const currentVal = inputs.lora_name;
@@ -330,53 +360,283 @@ function addComfyLora(parent, nodeId, title, inputs) {
         ? listData.map(f => `<option value="${f}" ${f === currentVal ? 'selected' : ''}>${f}</option>`).join('')
         : `<option value="${currentVal}">${currentVal}</option>`;
     
+    // Use model strength as the initial display value
+    const initialStrength = inputs.strength_model || 1.0;
+    const uid = `in_${nodeId}_strength`;
+
     wrapper.innerHTML = `
-        <label style="color:var(--accent-secondary); margin-bottom:5px; display:block;">🧩 LORA <span style="opacity:0.5">#${nodeId}</span></label>
+        <div class="row" style="justify-content:space-between; margin-bottom:5px;">
+            <label style="color:var(--accent-secondary); display:block;">🧩 LORA <span style="opacity:0.5">#${nodeId}</span></label>
+            <div class="row" style="gap:5px;">
+                <button onclick="window.setComfyLoraStrength('${nodeId}', 1.0, this)" title="Max Strength"
+                    style="background:rgba(76, 175, 80, 0.2); color:#4CAF50; border:1px solid rgba(76, 175, 80, 0.3); width:24px; height:24px; padding:0; display:flex; align-items:center; justify-content:center; border-radius:4px;">
+                    <i data-lucide="check" size="14"></i>
+                </button>
+                <button onclick="window.setComfyLoraStrength('${nodeId}', 0.0, this)" title="Disable"
+                    style="background:rgba(244,67,54,0.2); color:#f44336; border:1px solid rgba(244,67,54,0.3); width:24px; height:24px; padding:0; display:flex; align-items:center; justify-content:center; border-radius:4px;">
+                    <i data-lucide="x" size="14"></i>
+                </button>
+            </div>
+        </div>
+
         <select id="in_${nodeId}_lora_name" onchange="updateComfyValue('${nodeId}', 'lora_name', this.value)" style="margin-bottom:8px;">
             ${options}
         </select>
-    `;
-    comfyInputMap[`in_${nodeId}_lora_name`] = { nodeId, field: 'lora_name' };
 
-    if (inputs.strength_model !== undefined) {
-        addComfySlider(wrapper, nodeId, 'strength_model', 'Model Str', inputs.strength_model, 0, 2, 0.1);
-    }
-    if (inputs.strength_clip !== undefined) {
-        addComfySlider(wrapper, nodeId, 'strength_clip', 'Clip Str', inputs.strength_clip, 0, 2, 0.1);
+        <div class="col">
+            <div class="row" style="justify-content:space-between">
+                <label>Strength</label>
+                <span id="val_${uid}" style="font-family:monospace; font-size:10px; color:var(--accent-primary)">${initialStrength}</span>
+            </div>
+            <input type="range" class="orange-slider" id="${uid}" min="0" max="2" step="0.1" value="${initialStrength}"
+                oninput="
+                    document.getElementById('val_${uid}').innerText = this.value; 
+                    updateComfyValue('${nodeId}', 'strength_model', this.value);
+                    updateComfyValue('${nodeId}', 'strength_clip', this.value);
+                ">
+        </div>
+    `;
+    
+    comfyInputMap[`in_${nodeId}_lora_name`] = { nodeId, field: 'lora_name' };
+    parent.appendChild(wrapper);
+    if(window.lucide) lucide.createIcons();
+}
+
+function setComfyLoraStrength(nodeId, val) {
+    // 1. Update Database/Memory
+    updateComfyValue(nodeId, 'strength_model', val);
+    updateComfyValue(nodeId, 'strength_clip', val);
+
+    // 2. Update UI (Model Slider)
+    const mSlider = document.getElementById(`in_${nodeId}_strength_model`);
+    const mText = document.getElementById(`val_in_${nodeId}_strength_model`);
+    if (mSlider) mSlider.value = val;
+    if (mText) mText.innerText = val;
+    
+    // 3. Update UI (Clip Slider)
+    const cSlider = document.getElementById(`in_${nodeId}_strength_clip`);
+    const cText = document.getElementById(`val_in_${nodeId}_strength_clip`);
+    if (cSlider) cSlider.value = val;
+    if (cText) cText.innerText = val;
+}
+
+function clearComfyLora(nodeId) {
+    if(!confirm("Disable this LoRA? (Sets strength to 0)")) return;
+    window.setComfyLoraStrength(nodeId, 0.0);
+}
+
+// --- GENERIC NODE BUILDER (The Catch-All) ---
+function createGenericNode(parent, nodeId, inputs, title) {
+    const wrapper = document.createElement('div');
+    wrapper.className = 'glass-box node-group';
+    // Grey border to distinguish "Generic" nodes from "Special" ones
+    wrapper.style.borderLeft = '4px solid #777'; 
+
+    const state = getCollapseClass('node_' + nodeId);
+
+    wrapper.innerHTML = `
+        <div class="row" onclick="toggleCollapse(this, 'node_${nodeId}')" style="cursor:pointer; justify-content:space-between; margin-bottom:10px;">
+            <div class="node-header" style="margin:0; color:#ccc"><span>⚙️ ${title}</span> <span style="opacity:0.5">#${nodeId}</span></div>
+            <i data-lucide="chevron-down" size="14"></i>
+        </div>
+        <div class="col ${state}" style="gap:10px;"></div>
+    `;
+    
+    const content = wrapper.querySelector('.col');
+
+    // Loop through every input in the node
+    for (const [key, val] of Object.entries(inputs)) {
+        // SKIP CONNECTIONS: If value is an array like ["55", 0], it's a wire, not a user setting.
+        if (Array.isArray(val)) continue;
+
+        const uid = `gen_${nodeId}_${key}`;
+        
+        // 1. Handle BOOLEANS (Checkboxes)
+        if (typeof val === 'boolean') {
+            const row = document.createElement('div');
+            row.className = 'row';
+            row.style.justifyContent = 'space-between';
+            row.innerHTML = `
+                <label>${key}</label>
+                <input type="checkbox" class="bojro-switch" ${val ? 'checked' : ''} 
+                    onchange="updateComfyValue('${nodeId}', '${key}', this.checked)">
+            `;
+            content.appendChild(row);
+        }
+        
+        // 2. Handle NUMBERS & STRINGS
+        else {
+            const isNumber = typeof val === 'number';
+            const inputType = isNumber ? 'number' : 'text';
+            const stepAttr = isNumber ? 'step="any"' : ''; // Allow decimals
+            
+            const div = document.createElement('div');
+            div.className = 'col';
+            div.innerHTML = `
+                <label style="opacity:0.7; font-size:10px; margin-bottom:2px;">${key}</label>
+                <input type="${inputType}" ${stepAttr} value="${val}" style="width:100%; background:rgba(0,0,0,0.2); border:1px solid var(--border-color); padding:6px; border-radius:4px; color:white;"
+                    onchange="updateComfyValue('${nodeId}', '${key}', this.value)">
+            `;
+            content.appendChild(div);
+        }
     }
 
     parent.appendChild(wrapper);
 }
 
+// --- NEW: COLLAPSIBLE POWER LORA ---
+function createPowerLora(parent, nodeId, inputs, title) {
+    const wrapper = document.createElement('div');
+    wrapper.className = 'glass-box node-group';
+    wrapper.style.borderLeft = '4px solid #ab47bc'; 
+
+    // DB State
+    const state = getCollapseClass('node_' + nodeId);
+
+    wrapper.innerHTML = `
+        <div class="row" onclick="toggleCollapse(this, 'node_${nodeId}')" style="cursor:pointer; justify-content:space-between; margin-bottom:10px;">
+            <div class="node-header" style="margin:0; color:#ab47bc"><span>⚡ ${title}</span> <span style="opacity:0.5">#${nodeId}</span></div>
+            <i data-lucide="chevron-down" size="14"></i>
+        </div>
+        <div id="power_slots_${nodeId}" class="col ${state}" style="gap:10px;"></div>
+    `;
+    
+    const slotsContainer = wrapper.querySelector(`#power_slots_${nodeId}`);
+
+    const keys = Object.keys(inputs).filter(k => k.startsWith('lora_')).sort();
+    keys.forEach(key => {
+        renderPowerLoraSlot(slotsContainer, nodeId, key, inputs[key]);
+    });
+
+    const addBtn = document.createElement('button');
+    addBtn.className = 'btn-small dashed';
+    addBtn.innerText = "+ ADD LORA SLOT";
+    addBtn.style.marginTop = "5px";
+    addBtn.onclick = () => addPowerLoraSlot(nodeId);
+    
+    slotsContainer.appendChild(addBtn);
+    parent.appendChild(wrapper);
+}
+
+function renderPowerLoraSlot(container, nodeId, key, data) {
+    const div = document.createElement('div');
+    div.className = 'col';
+    div.style.cssText = "background:rgba(255,255,255,0.05); padding:10px; border-radius:8px; margin-bottom:8px; border:1px solid var(--border-color);";
+    
+    const loraList = comfyServerLists.loras || [];
+    const options = loraList.length > 0 
+        ? loraList.map(f => `<option value="${f}" ${f === data.lora ? 'selected' : ''}>${f}</option>`).join('')
+        : `<option value="${data.lora}">${data.lora}</option>`;
+
+    div.innerHTML = `
+        <div class="row" style="justify-content:space-between; margin-bottom:5px; align-items:center;">
+            <label style="color:var(--text-main); font-weight:900; margin:0;">${key.toUpperCase().replace('_', ' ')}</label>
+            
+            <div class="row" style="width:auto; gap:8px; align-items:center;">
+                <label style="margin:0; font-size:9px;">ENABLED</label>
+                <input type="checkbox" class="bojro-switch" 
+                    ${data.on ? 'checked' : ''} 
+                    onchange="updateComfyValue('${nodeId}', '${key}.on', this.checked)">
+                
+                <button onclick="removePowerLoraSlot('${nodeId}', '${key}', this)" 
+                    style="background:rgba(244,67,54,0.2); color:#f44336; border:1px solid rgba(244,67,54,0.3); width:24px; height:24px; padding:0; display:flex; align-items:center; justify-content:center; border-radius:4px;">
+                    <i data-lucide="trash-2" size="14"></i>
+                </button>
+            </div>
+        </div>
+
+        <select onchange="updateComfyValue('${nodeId}', '${key}.lora', this.value)" style="margin-bottom:8px;">
+            ${options}
+        </select>
+
+        <div class="row" style="justify-content:space-between">
+            <label>Strength</label>
+            <span id="val_${nodeId}_${key}" style="font-family:monospace; font-size:10px; color:var(--accent-primary)">${data.strength}</span>
+        </div>
+        <input type="range" class="orange-slider" min="0" max="2" step="0.1" value="${data.strength}"
+            oninput="document.getElementById('val_${nodeId}_${key}').innerText = this.value; updateComfyValue('${nodeId}', '${key}.strength', this.value)">
+    `;
+    
+    container.appendChild(div);
+}
+
+function removePowerLoraSlot(nodeId, key, btn) {
+    if(!confirm("Delete this LoRA slot?")) return;
+    
+    // 1. Update Memory: Remove the key from the node inputs
+    const node = comfyLoadedWorkflow[nodeId];
+    if(node && node.inputs) {
+        delete node.inputs[key];
+    }
+    
+    // 2. Update UI: Remove the visual box instantly
+    const slotDiv = btn.closest('.col'); // Finds the wrapper div we created in render
+    if(slotDiv) slotDiv.remove();
+    
+    // 3. Save Persistence (So it stays deleted on reload)
+    localStorage.setItem('bojro_comfy_snapshot', JSON.stringify(comfyLoadedWorkflow));
+    const currentName = document.getElementById('comfyLoadedFileName').innerText;
+    localStorage.setItem('bojro_comfy_snapshot_name', currentName);
+    
+    // 4. Refresh icons
+    if(window.lucide) lucide.createIcons();
+}
+
+function addPowerLoraSlot(nodeId) {
+    const node = comfyLoadedWorkflow[nodeId];
+    if (!node || !node.inputs) return;
+
+    const existingKeys = Object.keys(node.inputs).filter(k => k.startsWith('lora_'));
+    let maxIdx = 0;
+    existingKeys.forEach(k => {
+        const num = parseInt(k.split('_')[1]);
+        if (num > maxIdx) maxIdx = num;
+    });
+    const newKey = `lora_${maxIdx + 1}`;
+    const defaultLora = comfyServerLists.loras[0] || "None";
+    
+    node.inputs[newKey] = { "on": true, "lora": defaultLora, "strength": 1.0 };
+    updateComfyValue(nodeId, newKey + ".strength", 1.0); 
+    
+    // Append to UI without rebuilding everything
+    const container = document.getElementById(`power_slots_${nodeId}`);
+    if (container) {
+        // Insert before the "Add Button" (last child)
+        const btn = container.lastElementChild;
+        renderPowerLoraSlot(container, nodeId, newKey, node.inputs[newKey]);
+        container.appendChild(btn); // Move button to bottom
+    }
+}
+
+// --- NEW: COLLAPSIBLE SAMPLER ---
 function createComfySampler(parent, nodeId, inputs, title) {
     const wrapper = document.createElement('div');
     wrapper.className = 'glass-box node-group';
-    wrapper.innerHTML = `<div class="node-header"><span>🎛️ ${title}</span> <span style="opacity:0.5">#${nodeId}</span></div>`;
-
-    // 1. Sampler & Scheduler Dropdowns
-    // We check if the input exists in the node before adding the control
-    if (inputs.sampler_name !== undefined) {
-        addComfyDropdown(wrapper, nodeId, 'sampler_name', 'Sampler', comfyServerLists.samplers, inputs.sampler_name);
-    }
-    if (inputs.scheduler !== undefined) {
-        addComfyDropdown(wrapper, nodeId, 'scheduler', 'Schedule', comfyServerLists.schedulers, inputs.scheduler);
-    }
-
-    // 2. Standard Sliders
-    if (inputs.steps !== undefined) addComfySlider(wrapper, nodeId, 'steps', 'Steps', inputs.steps, 1, 100, 1);
-    if (inputs.cfg !== undefined) addComfySlider(wrapper, nodeId, 'cfg', 'CFG Scale', inputs.cfg, 1, 20, 0.5);
     
-    // 3. Denoise Slider (NEW)
-    // Denoise runs from 0.0 to 1.0 usually
-    if (inputs.denoise !== undefined) {
-        addComfySlider(wrapper, nodeId, 'denoise', 'Denoise', inputs.denoise, 0, 1, 0.01);
-    }
+    const state = getCollapseClass('node_' + nodeId);
 
-    if (inputs.seed !== undefined && !Array.isArray(inputs.seed)) addComfySeed(wrapper, nodeId, 'seed', inputs.seed);
+    wrapper.innerHTML = `
+        <div class="row" onclick="toggleCollapse(this, 'node_${nodeId}')" style="cursor:pointer; justify-content:space-between; margin-bottom:10px;">
+            <div class="node-header" style="margin:0;"><span>🎛️ ${title}</span> <span style="opacity:0.5">#${nodeId}</span></div>
+            <i data-lucide="chevron-down" size="14"></i>
+        </div>
+        <div class="col ${state}"></div>
+    `;
+    const content = wrapper.querySelector('.col');
+
+    if (inputs.sampler_name !== undefined) addComfyDropdown(content, nodeId, 'sampler_name', 'Sampler', comfyServerLists.samplers, inputs.sampler_name);
+    if (inputs.scheduler !== undefined) addComfyDropdown(content, nodeId, 'scheduler', 'Schedule', comfyServerLists.schedulers, inputs.scheduler);
+
+    if (inputs.steps !== undefined) addComfySlider(content, nodeId, 'steps', 'Steps', inputs.steps, 1, 100, 1);
+    if (inputs.cfg !== undefined) addComfySlider(content, nodeId, 'cfg', 'CFG Scale', inputs.cfg, 1, 20, 0.5);
+    if (inputs.denoise !== undefined) addComfySlider(content, nodeId, 'denoise', 'Denoise', inputs.denoise, 0, 1, 0.01);
+
+    if (inputs.seed !== undefined && !Array.isArray(inputs.seed)) addComfySeed(content, nodeId, 'seed', inputs.seed);
 
     parent.appendChild(wrapper);
 }
 
+// --- NEW: COLLAPSIBLE TEXT ---
 function createComfyText(parent, nodeId, inputs, title) {
     const isNeg = title.toLowerCase().includes('negative') || title.toLowerCase().includes('neg');
     const color = isNeg ? '#f44336' : 'var(--success)';
@@ -385,72 +645,94 @@ function createComfyText(parent, nodeId, inputs, title) {
     wrapper.className = 'glass-box node-group';
     wrapper.style.borderLeftColor = color;
     
+    const state = getCollapseClass('node_' + nodeId);
+
     wrapper.innerHTML = `
-        <div class="node-header" style="color:${color}">
-            <span>${isNeg ? '🛡️ NEGATIVE' : '✨ PROMPT'}</span> 
-            <span style="opacity:0.5">#${nodeId}</span>
+        <div class="row" onclick="toggleCollapse(this, 'node_${nodeId}')" style="cursor:pointer; justify-content:space-between; margin-bottom:10px;">
+            <div class="node-header" style="margin:0; color:${color}">
+                <span>${isNeg ? '🛡️ NEGATIVE' : '✨ PROMPT'}</span> <span style="opacity:0.5">#${nodeId}</span>
+            </div>
+            <i data-lucide="chevron-down" size="14"></i>
         </div>
-        <textarea id="in_${nodeId}_text" rows="${isNeg ? 2 : 5}" oninput="updateComfyValue('${nodeId}', 'text', this.value)">${inputs.text}</textarea>
+        <div class="col ${state}">
+            <textarea id="in_${nodeId}_text" rows="${isNeg ? 2 : 5}" oninput="updateComfyValue('${nodeId}', 'text', this.value)">${inputs.text}</textarea>
+        </div>
     `;
-    
     parent.appendChild(wrapper);
     comfyInputMap[`in_${nodeId}_text`] = { nodeId, field: 'text' };
 }
 
+// --- NEW: COLLAPSIBLE RESOLUTION ---
 function createComfyResolution(parent, nodeId, inputs, title) {
     const wrapper = document.createElement('div');
     wrapper.className = 'glass-box node-group';
-    wrapper.innerHTML = `<div class="node-header"><span>📐 RESOLUTION</span> <span style="opacity:0.5">#${nodeId}</span></div>`;
     
-    addComfySlider(wrapper, nodeId, 'width', 'Width', inputs.width, 512, 2048, 64);
-    addComfySlider(wrapper, nodeId, 'height', 'Height', inputs.height, 512, 2048, 64);
+    const state = getCollapseClass('node_' + nodeId);
+
+    wrapper.innerHTML = `
+        <div class="row" onclick="toggleCollapse(this, 'node_${nodeId}')" style="cursor:pointer; justify-content:space-between; margin-bottom:10px;">
+            <div class="node-header" style="margin:0;"><span>📐 RESOLUTION</span> <span style="opacity:0.5">#${nodeId}</span></div>
+            <i data-lucide="chevron-down" size="14"></i>
+        </div>
+        <div class="col ${state}"></div>
+    `;
+    const content = wrapper.querySelector('.col');
+    
+    addComfySlider(content, nodeId, 'width', 'Width', inputs.width, 512, 2048, 64);
+    addComfySlider(content, nodeId, 'height', 'Height', inputs.height, 512, 2048, 64);
     
     parent.appendChild(wrapper);
 }
 
+// --- NEW: COLLAPSIBLE IMAGE UPLOAD ---
 function createComfyImageUpload(parent, nodeId, inputs, title) {
     const wrapper = document.createElement('div');
     wrapper.className = 'glass-box node-group';
     wrapper.style.padding = '10px';
-    wrapper.innerHTML = `<div class="node-header" style="margin-bottom:10px;"><span>🖼️ INPUT IMAGE</span> <span style="opacity:0.5">#${nodeId}</span></div>`;
 
     const inputId = `file_${nodeId}`;
     const thumbId = `thumb_${nodeId}`;
     const labelId = `label_${nodeId}`;
-    
-    // Check if image exists in workflow
     const currentImgName = inputs.image || "No image selected";
     const currentImgUrl = inputs.image ? `http://${comfyHost}/view?filename=${inputs.image}&type=input` : '';
     const displayStyle = currentImgUrl ? 'display:block;' : 'display:none;';
 
-    wrapper.innerHTML += `
-        <div style="background:rgba(0,0,0,0.3); border-radius:8px; margin-bottom:10px; overflow:hidden; min-height:120px; display:flex; align-items:center; justify-content:center; border:1px solid var(--border-color);">
-            <img id="${thumbId}" src="${currentImgUrl}" style="width:100%; height:auto; max-height:250px; object-fit:contain; ${displayStyle}" onerror="this.style.display='none'">
-            <div id="placeholder_${nodeId}" style="color:var(--text-muted); font-size:10px; ${currentImgUrl ? 'display:none' : 'display:block'}">
-                <i data-lucide="image" size="24" style="opacity:0.5; margin-bottom:5px;"></i><br>NO IMAGE
+    const state = getCollapseClass('node_' + nodeId);
+
+    wrapper.innerHTML = `
+        <div class="row" onclick="toggleCollapse(this, 'node_${nodeId}')" style="cursor:pointer; justify-content:space-between; margin-bottom:10px;">
+            <div class="node-header" style="margin:0;"><span>🖼️ INPUT IMAGE</span> <span style="opacity:0.5">#${nodeId}</span></div>
+            <i data-lucide="chevron-down" size="14"></i>
+        </div>
+        
+        <div class="col ${state}">
+            <div style="background:rgba(0,0,0,0.3); border-radius:8px; margin-bottom:10px; overflow:hidden; min-height:120px; display:flex; align-items:center; justify-content:center; border:1px solid var(--border-color);">
+                <img id="${thumbId}" src="${currentImgUrl}" style="width:100%; height:auto; max-height:250px; object-fit:contain; ${displayStyle}" onerror="this.style.display='none'">
+                <div id="placeholder_${nodeId}" style="color:var(--text-muted); font-size:10px; ${currentImgUrl ? 'display:none' : 'display:block'}">
+                    <i data-lucide="image" size="24" style="opacity:0.5; margin-bottom:5px;"></i><br>NO IMAGE
+                </div>
             </div>
-        </div>
 
-        <input type="file" id="${inputId}" accept="image/*" class="hidden" onchange="uploadComfyImage('${nodeId}', '${inputId}')">
-        
-        <div class="row" style="background:var(--bg-input); padding:8px; border-radius:6px; margin-bottom:8px; align-items:center;">
-            <i data-lucide="file" size="12" style="color:var(--text-muted); margin-right:6px;"></i>
-            <span id="${labelId}" style="font-size:11px; font-family:monospace; color:var(--text-main); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${currentImgName}</span>
-        </div>
+            <input type="file" id="${inputId}" accept="image/*" class="hidden" onchange="uploadComfyImage('${nodeId}', '${inputId}')">
+            
+            <div class="row" style="background:var(--bg-input); padding:8px; border-radius:6px; margin-bottom:8px; align-items:center;">
+                <i data-lucide="file" size="12" style="color:var(--text-muted); margin-right:6px;"></i>
+                <span id="${labelId}" style="font-size:11px; font-family:monospace; color:var(--text-main); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${currentImgName}</span>
+            </div>
 
-        <div class="row" style="gap:8px;">
-            <button class="btn-small" onclick="document.getElementById('${inputId}').click()" style="flex:2; background:rgba(255,255,255,0.1);">
-                <i data-lucide="upload" size="12" style="margin-right:4px;"></i> UPLOAD
-            </button>
-            <button class="btn-small" onclick="startComfyMasking('${nodeId}')" style="flex:1; background:var(--accent-secondary); color:white;" title="Mask/Edit">
-                <i data-lucide="brush" size="12"></i>
-            </button>
-            <button class="btn-small" onclick="clearComfyImage('${nodeId}')" style="flex:0 0 32px; background:rgba(244,67,54,0.2); color:#f44336; padding:0; display:flex; align-items:center; justify-content:center; border:1px solid rgba(244,67,54,0.3);" title="Clear Image">
-                <i data-lucide="x" size="14"></i>
-            </button>
+            <div class="row" style="gap:8px;">
+                <button class="btn-small" onclick="document.getElementById('${inputId}').click()" style="flex:2; background:rgba(255,255,255,0.1);">
+                    <i data-lucide="upload" size="12" style="margin-right:4px;"></i> UPLOAD
+                </button>
+                <button class="btn-small" onclick="startComfyMasking('${nodeId}')" style="flex:1; background:var(--accent-secondary); color:white;" title="Mask/Edit">
+                    <i data-lucide="brush" size="12"></i>
+                </button>
+                <button class="btn-small" onclick="clearComfyImage('${nodeId}')" style="flex:0 0 32px; background:rgba(244,67,54,0.2); color:#f44336; padding:0; display:flex; align-items:center; justify-content:center; border:1px solid rgba(244,67,54,0.3);" title="Clear Image">
+                    <i data-lucide="x" size="14"></i>
+                </button>
+            </div>
+            <div id="status_${nodeId}" style="font-size:9px; color:var(--text-muted); margin-top:5px; text-align:right;"></div>
         </div>
-        
-        <div id="status_${nodeId}" style="font-size:9px; color:var(--text-muted); margin-top:5px; text-align:right;"></div>
     `;
     
     parent.appendChild(wrapper);
@@ -513,22 +795,46 @@ function addComfySeed(parent, nodeId, field, val) {
 
 // --- 4. EXECUTION ---
 
-function updateComfyValue(nodeId, field, value) {
+function updateComfyValue(nodeId, fieldPath, value) {
     let finalVal = value;
     const node = comfyLoadedWorkflow[nodeId];
+    if (!node || !node.inputs) return;
+
+    // 1. Handle Nested Paths (e.g. "lora_1.strength")
+    const parts = fieldPath.split('.');
+    const parentKey = parts[0];
+    const childKey = parts[1];
     
-    // Standard parsing
-    if (['steps','width','height','seed'].includes(field)) finalVal = parseInt(value);
-    
-    // NEW: Added 'denoise' to the float list
-    if (['cfg','strength_model','strength_clip','denoise'].includes(field)) finalVal = parseFloat(value);
-    
-    // Update the memory
-    if (node && node.inputs) {
-        node.inputs[field] = finalVal;
+    // 2. Get the OLD value to detect type
+    let originalValue;
+    if (parts.length === 1) {
+        originalValue = node.inputs[fieldPath];
+    } else {
+        originalValue = node.inputs[parentKey] ? node.inputs[parentKey][childKey] : null;
     }
 
-    // NEW: Save to disk immediately!
+    // 3. SMART TYPE DETECTION (The Upgrade)
+    // If the original was a number, make sure the new one is too.
+    if (typeof originalValue === 'number') {
+        finalVal = parseFloat(value);
+        // If it's an integer (like steps), round it, unless it looks like a float
+        if (Number.isInteger(originalValue) && !String(value).includes('.')) {
+             finalVal = parseInt(value);
+        }
+    } 
+    else if (typeof originalValue === 'boolean') {
+        finalVal = (value === true || value === "true");
+    }
+
+    // 4. Apply Update
+    if (parts.length === 1) {
+        node.inputs[fieldPath] = finalVal;
+    } else {
+        if (!node.inputs[parentKey]) node.inputs[parentKey] = {};
+        node.inputs[parentKey][childKey] = finalVal;
+    }
+
+    // 5. Save Persistence
     localStorage.setItem('bojro_comfy_snapshot', JSON.stringify(comfyLoadedWorkflow));
     const currentName = document.getElementById('comfyLoadedFileName').innerText;
     localStorage.setItem('bojro_comfy_snapshot_name', currentName);
@@ -1008,6 +1314,9 @@ function closeComfyTemplateModal() {
 }
 
 // 4. Create the list items you see on screen
+// --- TEMPLATE MANAGER (Jitter-Free & Persistent) ---
+
+// 4. Create the list items
 async function renderTemplateList() {
     const list = document.getElementById('tmplList');
     list.innerHTML = "";
@@ -1016,7 +1325,6 @@ async function renderTemplateList() {
     const tx = db.transaction(["comfy_templates"], "readonly");
     const store = tx.objectStore("comfy_templates");
     
-    // Get everything from the box
     store.getAll().onsuccess = (e) => {
         const all = e.target.result;
         
@@ -1027,43 +1335,61 @@ async function renderTemplateList() {
 
         all.forEach(tmpl => {
             const div = document.createElement('div');
-            // If it's selected, give it the 'selected' look from your CSS
-            div.className = `tmpl-item ${selectedTemplates.has(tmpl.name) ? 'selected' : ''}`;
+            const isSelected = selectedTemplates.has(tmpl.name);
+            
+            div.className = `tmpl-item ${isSelected ? 'selected' : ''}`;
             div.style.marginBottom = "8px"; 
             
+            // We pre-render the checkmark but hide it if not selected
             div.innerHTML = `
                 <div class="tmpl-info">
                     <span class="tmpl-name">${tmpl.name}</span>
                     <span style="font-size:9px; color:var(--text-muted);">${tmpl.date}</span>
                 </div>
-                ${selectedTemplates.has(tmpl.name) ? '<i data-lucide="check-circle" size="14" style="color:var(--error);"></i>' : ''}
+                <div class="tmpl-check ${isSelected ? '' : 'hidden'}">
+                    <i data-lucide="check-circle" size="14" style="color:var(--error);"></i>
+                </div>
             `;
             
-            div.onclick = () => handleTmplClick(tmpl);
+            // CRITICAL FIX: Pass 'e' (event) AND 'tmpl'
+            div.onclick = (e) => handleTmplClick(e, tmpl);
             list.appendChild(div);
         });
+        
         if(window.lucide) lucide.createIcons();
     };
 }
 
-// 5. What happens when you tap a template in the list
-function handleTmplClick(tmpl) {
+// 5. Handle Click (Selection or Load)
+function handleTmplClick(event, tmpl) {
     if (isTmplSelectionMode) {
-        // Just highlight/unhighlight if we are in deleting mode
+        // Zero-Jitter Selection Logic
+        const row = event.currentTarget;
+        const checkIcon = row.querySelector('.tmpl-check');
+
         if (selectedTemplates.has(tmpl.name)) {
             selectedTemplates.delete(tmpl.name);
+            row.classList.remove('selected');
+            if(checkIcon) checkIcon.classList.add('hidden');
         } else {
             selectedTemplates.add(tmpl.name);
+            row.classList.add('selected');
+            if(checkIcon) checkIcon.classList.remove('hidden');
         }
-        updateTmplUI();
+        
+        // Update ONLY text/buttons (No list re-render)
+        updateTmplStats(); 
     } else {
-        // Actually LOAD the template if we are in normal mode
+        // Load Logic
         try {
             comfyLoadedWorkflow = JSON.parse(tmpl.data);
             document.getElementById('comfyLoadedFileName').innerText = tmpl.name;
             buildComfyUI(comfyLoadedWorkflow);
             
-            // Re-enable generate button if connected
+            // PERSISTENCE FIX: Save as Active Snapshot immediately
+            localStorage.setItem('bojro_comfy_snapshot', tmpl.data);
+            localStorage.setItem('bojro_comfy_snapshot_name', tmpl.name);
+            
             if (comfySocket && comfySocket.readyState === WebSocket.OPEN) {
                 document.getElementById('comfyQueueBtn').disabled = false;
             }
@@ -1075,31 +1401,36 @@ function handleTmplClick(tmpl) {
     }
 }
 
-// 6. Turn selection mode ON or OFF
+// 6. Mode Toggle
 function toggleTmplSelectionMode() {
     isTmplSelectionMode = !isTmplSelectionMode;
     const btn = document.getElementById('tmplSelectBtn');
     
     if (isTmplSelectionMode) {
-        // We only change the text and add the CSS class
         btn.innerText = "CANCEL";
         btn.classList.add('btn-cancel-active');
     } else {
-        // We change the text back and remove the CSS class
         btn.innerText = "SELECT";
         btn.classList.remove('btn-cancel-active');
         selectedTemplates.clear();
     }
-    updateTmplUI();
+    updateTmplUI(); // Full re-render when switching modes
 }
 
-// 7. Refresh the screen and show/hide the Delete button
+// 7a. Full UI Update (For opening/closing/deleting)
 function updateTmplUI() {
     renderTemplateList();
+    updateTmplStats();
+}
+
+// 7b. Stats Update Only (For clicking items - Fast!)
+function updateTmplStats() {
     const count = selectedTemplates.size;
-    document.getElementById('tmplSelCount').innerText = count;
-    
+    const countLabel = document.getElementById('tmplSelCount');
     const delBtn = document.getElementById('tmplDeleteBtn');
+    
+    if(countLabel) countLabel.innerText = count;
+    
     if (count > 0 && isTmplSelectionMode) {
         delBtn.classList.remove('hidden');
     } else {
@@ -1107,7 +1438,7 @@ function updateTmplUI() {
     }
 }
 
-// 8. Delete only the ones you checked
+// 8. Delete Selected
 function deleteSelectedTemplates() {
     if (selectedTemplates.size === 0) return;
     
@@ -1121,12 +1452,8 @@ function deleteSelectedTemplates() {
         
         tx.oncomplete = () => {
             selectedTemplates.clear();
-            isTmplSelectionMode = false;
-            updateTmplUI();
-            const btn = document.getElementById('tmplSelectBtn');
-            btn.innerText = "SELECT";
-            btn.style.background = "";
-            btn.style.color = "";
+            // Optional: isTmplSelectionMode = false; 
+            updateTmplUI(); // Full Refresh needed here
         };
     }
 }
@@ -1370,6 +1697,50 @@ async function finishComfyMasking() {
         }
     }, 'image/png');
 }
+
+// --- COLLAPSE STATE MANAGERS ---
+
+function toggleCollapse(headerElement, uniqueKey) {
+    // 1. Toggle the visibility of the next element (the content)
+    const content = headerElement.nextElementSibling;
+    const isHidden = content.classList.toggle('hidden');
+    
+    // 2. Save the new state to LocalStorage (Persistent DB)
+    // Key format: "bojro_collapse_node_50" or "bojro_collapse_resources"
+    localStorage.setItem('bojro_collapse_' + uniqueKey, isHidden);
+    
+    // 3. Optional: Rotate the arrow if it exists
+    const icon = headerElement.querySelector('svg');
+    if(icon) {
+        icon.style.transition = 'transform 0.2s';
+        icon.style.transform = isHidden ? 'rotate(-90deg)' : 'rotate(0deg)';
+    }
+}
+
+function getCollapseClass(uniqueKey) {
+    // Read from DB. Default is '' (visible) if not set.
+    // If 'true', return 'hidden' class.
+    return localStorage.getItem('bojro_collapse_' + uniqueKey) === 'true' ? 'hidden' : '';
+}
+
+// --- FIX: Expose this function to the Window scope ---
+window.setComfyLoraStrength = function(nodeId, val, btn) {
+    // 1. Animation response
+    if (btn) {
+        btn.classList.add('btn-pop');
+        setTimeout(() => btn.classList.remove('btn-pop'), 200);
+    }
+    
+    // 2. Update BOTH background values
+    updateComfyValue(nodeId, 'strength_model', val);
+    updateComfyValue(nodeId, 'strength_clip', val);
+
+    // 3. Update the single visual slider
+    const slider = document.getElementById(`in_${nodeId}_strength`);
+    const text = document.getElementById(`val_in_${nodeId}_strength`);
+    if (slider) slider.value = val;
+    if (text) text.innerText = val;
+};
 
 // 8. AUTO-INIT ON LOAD
 document.addEventListener('DOMContentLoaded', restoreComfySession);

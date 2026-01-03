@@ -1691,3 +1691,15 @@ input[readonly], textarea[readonly] {
     border-top: none;
     flex-shrink: 0;
 }
+
+/* LoRA Button Pop Animation */
+.btn-pop {
+    transform: scale(0.85);
+    filter: brightness(1.5);
+    transition: transform 0.1s ease, filter 0.1s ease;
+}
+
+/* Ensure the button has a smooth return transition */
+button[onclick*="setComfyLoraStrength"] {
+    transition: transform 0.2s ease, filter 0.2s ease;
+}
