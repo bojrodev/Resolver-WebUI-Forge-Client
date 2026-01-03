@@ -255,8 +255,14 @@ function buildComfyUI(workflow) {
         const type = node.class_type;
         const title = node._meta ? node._meta.title : type;
 
+        // --- SPECIAL: Power Lora Loader (rgthree) ---
+        // This must be checked explicitly!
+        if (type === 'Power Lora Loader (rgthree)') {
+            createPowerLora(container, nodeId, node.inputs, title);
+        }
+
         // --- A. RESOURCE NODES ---
-        if (type.includes('CheckpointLoader')) {
+        else if (type.includes('CheckpointLoader')) {
             addComfyDropdown(resourceContent, nodeId, 'ckpt_name', 'CHECKPOINT', comfyServerLists.checkpoints, node.inputs.ckpt_name);
             hasResources = true;
         }
@@ -318,6 +324,110 @@ function addComfyDropdown(parent, nodeId, fieldName, label, listData, currentVal
     `;
     parent.appendChild(div);
     comfyInputMap[uid] = { nodeId, field: fieldName };
+}
+
+function createPowerLora(parent, nodeId, inputs, title) {
+    const wrapper = document.createElement('div');
+    wrapper.className = 'glass-box node-group';
+    // Use a special purple border for Power Lora
+    wrapper.style.borderLeft = '4px solid #ab47bc'; 
+    wrapper.innerHTML = `<div class="node-header" style="color:#ab47bc"><span>⚡ ${title}</span> <span style="opacity:0.5">#${nodeId}</span></div>`;
+
+    // container for the slots
+    const slotsContainer = document.createElement('div');
+    slotsContainer.id = `power_slots_${nodeId}`;
+    wrapper.appendChild(slotsContainer);
+
+    // 1. Loop through inputs to find existing "lora_X" keys
+    // We sort them to ensure lora_1 comes before lora_2
+    const keys = Object.keys(inputs).filter(k => k.startsWith('lora_')).sort();
+
+    keys.forEach(key => {
+        const data = inputs[key]; // { on: true, lora: "name.safetensors", strength: 1 }
+        renderPowerLoraSlot(slotsContainer, nodeId, key, data);
+    });
+
+    // 2. The "+ ADD LORA" Button
+    const addBtn = document.createElement('button');
+    addBtn.className = 'btn-small dashed';
+    addBtn.innerText = "+ ADD LORA SLOT";
+    addBtn.style.marginTop = "10px";
+    addBtn.onclick = () => addPowerLoraSlot(nodeId);
+    
+    wrapper.appendChild(addBtn);
+    parent.appendChild(wrapper);
+}
+
+function renderPowerLoraSlot(container, nodeId, key, data) {
+    const div = document.createElement('div');
+    div.className = 'col';
+    div.style.cssText = "background:rgba(255,255,255,0.05); padding:10px; border-radius:8px; margin-bottom:8px; border:1px solid var(--border-color);";
+    
+    // We need the list of LoRAs to populate the dropdown
+    const loraList = comfyServerLists.loras || [];
+    const options = loraList.length > 0 
+        ? loraList.map(f => `<option value="${f}" ${f === data.lora ? 'selected' : ''}>${f}</option>`).join('')
+        : `<option value="${data.lora}">${data.lora}</option>`;
+
+    div.innerHTML = `
+        <div class="row" style="justify-content:space-between; margin-bottom:5px;">
+            <label style="color:var(--text-main); font-weight:900; margin:0;">${key.toUpperCase().replace('_', ' ')}</label>
+            
+            <div class="row" style="width:auto; gap:8px;">
+                <label style="margin:0; font-size:9px;">ENABLED</label>
+                <input type="checkbox" class="bojro-switch" 
+                    ${data.on ? 'checked' : ''} 
+                    onchange="updateComfyValue('${nodeId}', '${key}.on', this.checked)">
+            </div>
+        </div>
+
+        <select onchange="updateComfyValue('${nodeId}', '${key}.lora', this.value)" style="margin-bottom:8px;">
+            ${options}
+        </select>
+
+        <div class="row" style="justify-content:space-between">
+            <label>Strength</label>
+            <span id="val_${nodeId}_${key}" style="font-family:monospace; font-size:10px; color:var(--accent-primary)">${data.strength}</span>
+        </div>
+        <input type="range" class="orange-slider" min="0" max="2" step="0.1" value="${data.strength}"
+            oninput="document.getElementById('val_${nodeId}_${key}').innerText = this.value; updateComfyValue('${nodeId}', '${key}.strength', this.value)">
+    `;
+    
+    container.appendChild(div);
+}
+
+function addPowerLoraSlot(nodeId) {
+    const node = comfyLoadedWorkflow[nodeId];
+    if (!node || !node.inputs) return;
+
+    // 1. Find the next index (e.g., if lora_1 exists, we need lora_2)
+    const existingKeys = Object.keys(node.inputs).filter(k => k.startsWith('lora_'));
+    let maxIdx = 0;
+    existingKeys.forEach(k => {
+        const num = parseInt(k.split('_')[1]);
+        if (num > maxIdx) maxIdx = num;
+    });
+    const newKey = `lora_${maxIdx + 1}`;
+
+    // 2. Add the new object structure to the JSON
+    // Default: On=true, First Lora in list, Strength=1
+    const defaultLora = comfyServerLists.loras[0] || "None";
+    node.inputs[newKey] = {
+        "on": true,
+        "lora": defaultLora,
+        "strength": 1.0
+    };
+
+    // 3. Save & Refresh UI
+    updateComfyValue(nodeId, newKey + ".strength", 1.0); // Triggers auto-save
+    
+    // Re-render the UI for this specific node to show the new slot
+    // Ideally we re-build the whole UI, or just append. 
+    // Simplest approach: append the new slot to the DOM
+    const container = document.getElementById(`power_slots_${nodeId}`);
+    if (container) {
+        renderPowerLoraSlot(container, nodeId, newKey, node.inputs[newKey]);
+    }
 }
 
 function addComfyLora(parent, nodeId, title, inputs) {
@@ -513,22 +623,36 @@ function addComfySeed(parent, nodeId, field, val) {
 
 // --- 4. EXECUTION ---
 
-function updateComfyValue(nodeId, field, value) {
+function updateComfyValue(nodeId, fieldPath, value) {
     let finalVal = value;
     const node = comfyLoadedWorkflow[nodeId];
+    if (!node || !node.inputs) return;
+
+    // 1. Determine if this is a nested update (e.g. "lora_1.strength")
+    const parts = fieldPath.split('.');
     
-    // Standard parsing
-    if (['steps','width','height','seed'].includes(field)) finalVal = parseInt(value);
+    // 2. Parse Numbers
+    // We check the LAST part of the path for the field name
+    const fieldName = parts[parts.length - 1];
     
-    // NEW: Added 'denoise' to the float list
-    if (['cfg','strength_model','strength_clip','denoise'].includes(field)) finalVal = parseFloat(value);
+    if (['steps','width','height','seed'].includes(fieldName)) finalVal = parseInt(value);
+    if (['cfg','strength','strength_model','strength_clip','denoise'].includes(fieldName)) finalVal = parseFloat(value);
     
-    // Update the memory
-    if (node && node.inputs) {
-        node.inputs[field] = finalVal;
+    // 3. Apply Update
+    if (parts.length === 1) {
+        // Simple update (Standard nodes)
+        node.inputs[fieldPath] = finalVal;
+    } else {
+        // Nested update (Power Lora Loader)
+        // Example: parts = ["lora_1", "strength"]
+        const parentKey = parts[0];
+        const childKey = parts[1];
+        
+        if (!node.inputs[parentKey]) node.inputs[parentKey] = {};
+        node.inputs[parentKey][childKey] = finalVal;
     }
 
-    // NEW: Save to disk immediately!
+    // 4. Save Persistence
     localStorage.setItem('bojro_comfy_snapshot', JSON.stringify(comfyLoadedWorkflow));
     const currentName = document.getElementById('comfyLoadedFileName').innerText;
     localStorage.setItem('bojro_comfy_snapshot_name', currentName);
