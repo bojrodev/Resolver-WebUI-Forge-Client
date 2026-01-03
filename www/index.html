@@ -1179,33 +1179,39 @@
         </div>
     </div>
 
-    <div id="updateModal" class="modal hidden" style="z-index: 10000; backdrop-filter: blur(5px);">
-        <div class="modal-content" style="max-width: 320px; border: 1px solid var(--accent-primary); box-shadow: 0 0 30px rgba(0,0,0,0.6);">
+<div id="updateModal" class="modal hidden" style="z-index: 10000; backdrop-filter: blur(5px);">
+    <div class="modal-content" style="max-width: 320px; border: 1px solid var(--accent-primary); box-shadow: 0 0 30px rgba(0,0,0,0.6);">
+        
+        <div style="text-align: center; margin-bottom: 15px;">
+            <div style="width: 60px; height: 60px; background: rgba(var(--accent-primary-rgb), 0.1); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 10px auto; border: 1px solid var(--accent-primary);">
+                <i data-lucide="sparkles" size="32" style="color: var(--accent-primary);"></i>
+            </div>
+            <h3 style="margin: 0; font-size: 18px; color: #fff;">Update Available</h3>
+            <div id="updateVersionBadge" style="display: inline-block; background: var(--accent-gradient); color: white; font-size: 10px; font-weight: 900; padding: 2px 8px; border-radius: 4px; margin-top: 6px;">v1.6</div>
+        </div>
+
+        <div class="glass-box" style="text-align: left; padding: 12px; margin-bottom: 20px; max-height: 180px; overflow-y: auto; background: rgba(0,0,0,0.3);">
+            <label style="font-size: 9px; color: var(--text-muted); margin-bottom: 5px; display: block; letter-spacing: 1px;">WHAT'S NEW</label>
+            <p id="updateNotes" style="font-size: 13px; color: var(--text-main); margin: 0; line-height: 1.5; white-space: pre-wrap;">...</p>
+        </div>
+
+        <div class="col" style="gap: 10px;">
+            <button id="btnDoUpdate" class="btn-main" style="height: 48px; font-size: 14px; font-weight: 800; display: flex; align-items: center; justify-content: center; gap: 8px;">
+                <i data-lucide="download-cloud" size="18"></i> INSTALL UPDATE
+            </button>
             
-            <div style="text-align: center; margin-bottom: 15px;">
-                <div style="width: 60px; height: 60px; background: rgba(var(--accent-primary-rgb), 0.1); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 10px auto; border: 1px solid var(--accent-primary);">
-                    <i data-lucide="sparkles" size="32" style="color: var(--accent-primary);"></i>
-                </div>
-                <h3 style="margin: 0; font-size: 18px; color: #fff;">Update Available</h3>
-                <div id="updateVersionBadge" style="display: inline-block; background: var(--accent-gradient); color: white; font-size: 10px; font-weight: 900; padding: 2px 8px; border-radius: 4px; margin-top: 6px;">v1.6</div>
-            </div>
-
-            <div class="glass-box" style="text-align: left; padding: 12px; margin-bottom: 20px; max-height: 180px; overflow-y: auto; background: rgba(0,0,0,0.3);">
-                <label style="font-size: 9px; color: var(--text-muted); margin-bottom: 5px; display: block; letter-spacing: 1px;">WHAT'S NEW</label>
-                <p id="updateNotes" style="font-size: 13px; color: var(--text-main); margin: 0; line-height: 1.5; white-space: pre-wrap;">Bug fixes and performance improvements.</p>
-            </div>
-
-            <div class="col" style="gap: 10px;">
-                <button id="btnDoUpdate" class="btn-main" style="height: 48px; font-size: 14px; font-weight: 800; display: flex; align-items: center; justify-content: center; gap: 8px;">
-                    <i data-lucide="download-cloud" size="18"></i> INSTALL UPDATE
+            <div class="row" style="gap: 10px;">
+                <button onclick="document.getElementById('updateModal').classList.add('hidden')" class="btn-small" style="flex: 1; background: transparent; border: 1px solid var(--border-color); color: var(--text-muted);">
+                    LATER
                 </button>
-                
-                <button onclick="document.getElementById('updateModal').classList.add('hidden')" class="btn-small" style="background: transparent; border: 1px solid var(--border-color); color: var(--text-muted);">
-                    NOT NOW
+
+                <button id="btnSkipUpdate" class="btn-small" style="flex: 1; background: rgba(244, 67, 54, 0.1); border: 1px solid rgba(244, 67, 54, 0.3); color: #f44336;">
+                    SKIP v<span id="skipVersionTag"></span>
                 </button>
             </div>
         </div>
     </div>
+</div>
 
     <script src="js/lora.js"></script>
     <script src="js/neo.js"></script>
