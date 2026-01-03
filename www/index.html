@@ -932,6 +932,9 @@
                         <button onclick="requestBatteryPerm()" class="btn-small" style="width: 100%; color: #00e676; border-color: rgba(0, 230, 118, 0.3); background: rgba(0, 230, 118, 0.05);">
                             <i data-lucide="battery-charging" size="14" style="vertical-align: -2px; margin-right: 6px;"></i> IGNORE BATTERY OPTIMIZATIONS
                         </button>
+                        <button onclick="checkForAppUpdate()" class="btn-small" style="width: 100%; color: #2196F3; border-color: rgba(33, 150, 243, 0.3); background: rgba(33, 150, 243, 0.05);">
+                            <i data-lucide="download-cloud" size="14" style="vertical-align: -2px; margin-right: 6px;"></i> CHECK FOR UPDATES
+                        </button>
                         <button onclick="resetAppConfig()" class="btn-small" style="width: 100%; color: #f44336; border-color: rgba(244, 67, 54, 0.3); background: rgba(244, 67, 54, 0.05);">
                             <i data-lucide="refresh-cw" size="14" style="vertical-align: -2px; margin-right: 6px;"></i> RESET APP CONFIGURATION
                         </button>
@@ -1188,6 +1191,7 @@
     <script src="js/network.js"></script>
     <script src="js/engine.js"></script>
     <script src="js/comfy_logic.js"></script>
+    <script src="js/updater.js"></script>
     <script src="js/boot.js"></script>
 </body>
 </html>

@@ -16,3 +16,6 @@ project(':capacitor-local-notifications').projectDir = new File('../node_modules
 
 include ':capacitor-toast'
 project(':capacitor-toast').projectDir = new File('../node_modules/@capacitor/toast/android')
+
+include ':capgo-capacitor-updater'
+project(':capgo-capacitor-updater').projectDir = new File('../node_modules/@capgo/capacitor-updater/android')

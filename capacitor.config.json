@@ -10,6 +10,10 @@
   "plugins": {
     "SplashScreen": {
       "launchShowDuration": 0
+    },
+    "CapacitorUpdater": {
+      "autoUpdate": false,
+      "resetWhenUpdate": false
     }
   }
 }

@@ -11,6 +11,9 @@ const LocalNotifications = window.Capacitor ? window.Capacitor.Plugins.LocalNoti
 const App = window.Capacitor ? window.Capacitor.Plugins.App : null;
 const CapacitorHttp = window.Capacitor ? window.Capacitor.Plugins.CapacitorHttp : null;
 const ResolverService = window.Capacitor ? window.Capacitor.Plugins.ResolverService : null;
+// Add this under the existing plugins
+const CapacitorUpdater = window.Capacitor ? window.Capacitor.Plugins.CapacitorUpdater : null;
+
 
 // --- GLOBAL STATE ---
 let currentMode = 'xl';
