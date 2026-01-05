@@ -10,3 +10,7 @@ captures/
 *.keystore
 key.properties
 .aider*
+desktop_server/__pycache__/
+desktop_server/build/
+desktop_server/dist/
+desktop_server/*.spec
