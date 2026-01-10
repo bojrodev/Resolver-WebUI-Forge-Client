@@ -25,28 +25,38 @@ function loadHostIp() {
 }
 
 window.connect = async function(silent = false) {
-    // Use centralized configuration if available
-    if (connectionConfig.baseIp) {
-        HOST = buildWebUIUrl();
+    // 1. FORCE STATE SYNC (Safety Check)
+    // Directly check the switch to ensure we know the true mode, even if cfg.js missed it
+    const modeSwitch = document.getElementById('cfgModeSwitch');
+    if (modeSwitch && typeof connectionConfig !== 'undefined') {
+        connectionConfig.isRemote = modeSwitch.checked;
+    }
+
+    // 2. RESOLVE HOST
+    if (typeof connectionConfig !== 'undefined' && connectionConfig.baseIp) {
+        // This will now correctly return "" if external is selected but empty
+        HOST = buildWebUIUrl(); 
     } else {
+        // Legacy fallback
         const legacyField = document.getElementById('hostIp');
-        if (legacyField) {
-            HOST = legacyField.value.replace(/\/$/, "");
-        } else if (localStorage.getItem('bojroHostIp')) {
-            HOST = localStorage.getItem('bojroHostIp');
-        }
+        if (legacyField) HOST = legacyField.value.replace(/\/$/, "");
+        else if (localStorage.getItem('bojroHostIp')) HOST = localStorage.getItem('bojroHostIp');
+    }
+
+    // 3. VALIDATE HOST (Prevents the "Empty URL" Hang)
+    // If the URL is empty, stop immediately. Do not try to fetch.
+    if (!HOST || HOST.trim() === "") {
+        if (!silent) alert("Connection Error: No URL found. Please check your External/Local settings.");
+        return;
     }
     
     // TARGET THE BRICK BUTTON
     const btn = document.getElementById('initEngineBtn');
 
-    // Visual State 1: Connecting (Green Wireframe Pulse)
+    // Visual State 1: Connecting
     if (btn) {
-        // Reset previous states
         btn.classList.remove('active'); 
-        
         if (!silent) {
-            // Use Lucide Icon instead of Emoji
             btn.innerHTML = `<i data-lucide="cloud-lightning"></i> INITIALIZING...`;
             btn.classList.add('connecting'); 
             if(window.lucide) lucide.createIcons();
@@ -54,22 +64,40 @@ window.connect = async function(silent = false) {
     }
 
     try {
+        // 4. TIMEOUT FOR PERMISSIONS (Prevents Plugin Hang)
+        // If permissions take longer than 500ms, skip them and proceed to connect
         if (LocalNotifications && !silent) {
             try {
-                const perm = await LocalNotifications.requestPermissions();
-                if (perm.display === 'granted') await createNotificationChannel();
-            } catch(e) { console.warn("Notif perm failed", e); }
+                const permPromise = LocalNotifications.requestPermissions();
+                const timeoutPromise = new Promise(r => setTimeout(r, 500));
+                
+                // Race: Whichever finishes first wins
+                const result = await Promise.race([permPromise, timeoutPromise]);
+                
+                if (result && result.display === 'granted') {
+                    // Fire-and-forget the channel creation
+                    createNotificationChannel().catch(e => console.warn(e));
+                }
+            } catch(e) { console.warn("Notif perm skipped", e); }
         }
 
+        // 5. TIMEOUT FOR CONNECTION (Prevents Network Hang)
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 3000); // 3 Second Timeout
+
         const res = await fetch(`${HOST}/sdapi/v1/sd-models`, {
-            headers: getHeaders()
+            headers: getHeaders(),
+            signal: controller.signal
         });
+        
+        clearTimeout(timeoutId); // Clear timeout if successful
+
         if (!res.ok) throw new Error("Status " + res.status);
 
-        // Visual State 2: Success (Orange Industrial Neon)
+        // Visual State 2: Success
         if (btn) {
-            btn.classList.remove('connecting'); // Stop Green Pulse
-            btn.classList.add('active');        // Start Orange Neon
+            btn.classList.remove('connecting');
+            btn.classList.add('active');
             btn.innerHTML = `<i data-lucide="zap"></i> INITIALIZED`;
             if(window.lucide) lucide.createIcons();
         }
@@ -78,15 +106,14 @@ window.connect = async function(silent = false) {
         const genBtn = document.getElementById('genBtn');
         if(genBtn) genBtn.disabled = false;
 
-        // Fetch all resources including Upscalers for High-Res Fix
         await Promise.all([fetchModels(), fetchSamplers(), fetchVaes(), fetchUpscalers()]);
 
-        if (!silent)
-            if (Toast) Toast.show({
-                text: 'Engine Linked Successfully',
-                duration: 'short',
-                position: 'center'
-            });
+        if (!silent && Toast) Toast.show({
+            text: 'Engine Linked',
+            duration: 'short',
+            position: 'center'
+        });
+
     } catch (e) {
         // Visual State 3: Failure
         if (btn) {
@@ -97,9 +124,13 @@ window.connect = async function(silent = false) {
                 btn.innerHTML = `<i data-lucide="x-circle"></i> FAILED`;
                 if(window.lucide) lucide.createIcons();
                 
-                alert("Failed: " + e.message);
+                // Readable Error Messages
+                let msg = e.message;
+                if (e.name === 'AbortError') msg = "Connection Timed Out";
+                else if (e.message.includes("Failed to fetch")) msg = "Host Unreachable";
                 
-                // Revert to Idle text after 2s
+                alert("Failed: " + msg);
+                
                 setTimeout(() => {
                     btn.innerHTML = `<i data-lucide="zap-off"></i> INITIALIZE ENGINE`;
                     if(window.lucide) lucide.createIcons();

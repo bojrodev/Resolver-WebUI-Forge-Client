@@ -36,9 +36,18 @@ function loadConnectionConfig() {
 // NEW: Helper to toggle UI visibility
 function toggleConnectionModeUI() {
     const isRemote = document.getElementById('cfgModeSwitch').checked;
+    if (typeof connectionConfig !== 'undefined') {
+        connectionConfig.isRemote = isRemote;
+        if (typeof buildWebUIUrl === 'function') {
+            HOST = buildWebUIUrl();
+        }
+        }
+
+
     const localCont = document.getElementById('container-local');
     const extCont = document.getElementById('container-external');
     const label = document.getElementById('modeLabel');
+
 
     if (isRemote) {
         localCont.classList.add('hidden');
