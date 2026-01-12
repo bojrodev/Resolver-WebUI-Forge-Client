@@ -1,6 +1,6 @@
 /**
  * BOJRO SAA CLIENT (Character Select)
- * Version: 3x3 Grid, Full Image Contain, Fixed Zoom, Neon Glow
+ * Version: Fixed Centering & Abort Logic
  */
 window.SaacManager = {
     data: [], 
@@ -10,6 +10,9 @@ window.SaacManager = {
     observer: null,
     isLoaded: false,
     filteredData: [],
+    currentXhr: null, 
+    EXTERNAL_DB_URL: 'https://huggingface.co/datasets/Resolvexx/exdb/resolve/main/exact_db.json',
+    HF_TOKEN: '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',
 
     init: async function() {
         if(this.isLoaded) return;
@@ -23,36 +26,136 @@ window.SaacManager = {
                 return { name, tag };
             }).filter(x=>x);
             
-            // Link search input
             document.getElementById('saacSearch')?.addEventListener('input', () => this.render());
-            
             this.isLoaded = true;
-            await this.loadImages();
         } catch(e) { console.error("SAAC Init failed", e); }
     },
 
     loadImages: async function() {
-        try {
-            const res = await fetch('assets/saac_data/exact_db.json');
-            if(res.ok) this.imgDb = await res.json();
-        } catch(e) { console.error("SAAC Img Load Failed", e); }
+        if (this.imgDb) return true;
+
+        const cachedDb = localStorage.getItem('saac_exact_db');
+        if (cachedDb) {
+            try {
+                this.imgDb = JSON.parse(cachedDb);
+                return true;
+            } catch(e) {
+                console.error("Failed to parse cached DB", e);
+                localStorage.removeItem('saac_exact_db');
+            }
+        }
+
+        return await this.downloadDb();
+    },
+
+    downloadDb: function() {
+        return new Promise((resolve, reject) => {
+            const grid = document.getElementById('saacGrid');
+            if (!grid) return resolve(false);
+
+            // FIX: Absolute centering to prevent left-side alignment
+            grid.innerHTML = `
+                <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 85%; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; font-family: var(--font-main); color: var(--text-main); z-index: 100;">
+                    <div style="margin-bottom: 15px; font-weight: bold; letter-spacing: 1px;">SYNCING DATABASE...<br>DO NOT CLOSE THIS POP UP</div>
+                    <div style="width: 100%; height: 12px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 6px; overflow: hidden; margin-bottom: 12px;">
+                        <div id="saac-progress-bar" style="width: 0%; height: 100%; background: var(--accent-gradient); box-shadow: 0 0 10px var(--accent-primary); transition: width 0.1s;"></div>
+                    </div>
+                    <div id="saac-progress-text" style="font-size: 12px; color: var(--text-muted);">Requesting access...</div>
+                </div>
+            `;
+
+            if (this.currentXhr) this.currentXhr.abort();
+
+            this.currentXhr = new XMLHttpRequest();
+            const xhr = this.currentXhr;
+            
+            xhr.open('GET', this.EXTERNAL_DB_URL, true);
+            xhr.setRequestHeader('Authorization', 'Bearer ' + this.HF_TOKEN);
+
+            xhr.onprogress = (event) => {
+                if (event.lengthComputable) {
+                    const percent = (event.loaded / event.total) * 100;
+                    const progressFill = document.getElementById('saac-progress-bar');
+                    const progressText = document.getElementById('saac-progress-text');
+                    
+                    if (progressFill) progressFill.style.width = percent + '%';
+                    if (progressText) {
+                        const loadedMb = (event.loaded / (1024 * 1024)).toFixed(1);
+                        const totalMb = (event.total / (1024 * 1024)).toFixed(1);
+                        progressText.innerText = `${Math.round(percent)}% (${loadedMb}MB / ${totalMb}MB)`;
+                    }
+                }
+            };
+
+            xhr.onload = () => {
+                if (xhr.status === 200) {
+                    const progressText = document.getElementById('saac-progress-text');
+                    if (progressText) progressText.innerText = "Finalizing... (Processing 125MB)";
+                    
+                    setTimeout(() => {
+                        try {
+                            const rawText = xhr.responseText;
+                            this.imgDb = JSON.parse(rawText);
+                            localStorage.setItem('saac_exact_db', rawText);
+                            this.currentXhr = null;
+                            resolve(true);
+                        } catch (e) {
+                            grid.innerHTML = `
+                            <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 85%; text-align: center; font-family: var(--font-main); color: var(--error); z-index: 100;">
+                            <div style="font-weight: bold; margin-bottom: 10px;">DOWNLOAD FINISHED</div>
+                            <div style="font-size: 13px;">Please close and re-open this popup<br>to load the characters.</div>
+                            </div>
+                            `;
+                            resolve(false);
+                        }
+                    }, 1500); 
+                } else {
+                    grid.innerHTML = `<div style="padding:40px; color:var(--error); text-align:center;">Error: ${xhr.status}</div>`;
+                    resolve(false);
+                }
+            };
+
+            xhr.onerror = () => {
+                grid.innerHTML = `<div style="padding:40px; color:var(--error); text-align:center;">Network Error.</div>`;
+                resolve(false);
+            };
+
+            xhr.send();
+        });
     },
 
     open: async function() {
         if(!this.isLoaded) await this.init();
         document.getElementById('saacModal')?.classList.remove('hidden');
-        this.render();
+        
+        // Check if we already have the data in memory or storage
+        if (!this.imgDb) {
+            const hasCached = localStorage.getItem('saac_exact_db');
+            if (hasCached) {
+                try {
+                    this.imgDb = JSON.parse(hasCached);
+                } catch(e) { localStorage.removeItem('saac_exact_db'); }
+            }
+        }
+
+        const success = await this.loadImages();
+        if (success) this.render();
     },
 
-    close: function() { document.getElementById('saacModal')?.classList.add('hidden'); },
+    close: function() { 
+        // FIX: Kills the download process immediately so it doesn't glitch on reopen
+        if (this.currentXhr) {
+            this.currentXhr.abort();
+            this.currentXhr = null;
+        }
+        document.getElementById('saacModal')?.classList.add('hidden'); 
+    },
 
     render: function() {
         const grid = document.getElementById('saacGrid');
         if(!grid) return;
         const q = document.getElementById('saacSearch')?.value.toLowerCase() || '';
-        const prompt = document.getElementById('xl_prompt')?.value || '';
     
-        // FILTER ONLY: Removed the .sort() block that moved active items to the top
         let filtered = q ? this.data.filter(c => 
             c.name.toLowerCase().includes(q) || c.tag.toLowerCase().includes(q)
         ) : [...this.data];
@@ -125,10 +228,7 @@ window.SaacManager = {
         const img = document.getElementById('saac-img-content');
         const title = document.getElementById('saac-img-title');
         
-        if(!modal || !img) {
-            console.error("Zoom Modal Elements Missing in HTML");
-            return;
-        }
+        if(!modal || !img) return;
 
         if(this.imgDb?.[key]) {
             img.src = this.imgDb[key];
